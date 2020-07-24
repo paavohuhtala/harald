@@ -1,0 +1,8 @@
+[package]
+name = "harald-lang"
+version = "0.0.1"
+authors = ["paavohuhtala <paavo.huhtala@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+nom = "5.1.2"
