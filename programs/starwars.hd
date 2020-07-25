@@ -1,0 +1,13 @@
+
+faction = bag [
+    "Jedi",
+    "Sith",
+    "Ewoks",
+    "Gungans"
+];
+
+structures = bag [
+    { "The " bag [ "revenge", "return" ] " of the " faction  }
+];
+
+result = structures;

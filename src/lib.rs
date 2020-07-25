@@ -3,6 +3,7 @@ pub mod eval;
 pub mod parser;
 
 pub fn compile_script(script: &str) -> eval::CompiledScript {
-    let (_, parsed) = parser::parse_program(script).unwrap();
+    let (_input, parsed) = parser::parse_program(script).unwrap();
+    // TODO: Warn about unused input?
     eval::compile_script(parsed)
 }

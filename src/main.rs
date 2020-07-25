@@ -1,15 +1,31 @@
-use std::io::Write;
+use std::{fs, io::Write, path::PathBuf};
 
 use harald::eval::CompiledScript;
-use harald::parser::{parse_expression, parse_statement};
+use harald::{
+    compile_script,
+    parser::{parse_expression, parse_statement},
+};
 
-fn main() -> Result<(), anyhow::Error> {
-    println!("harald REPL");
+fn run_file(path: &str) -> Result<(), anyhow::Error> {
+    let path = PathBuf::from(path);
+    let source = fs::read_to_string(path)?;
 
+    let script = compile_script(&source);
+
+    let mut output = String::new();
+    script.run(&mut output)?;
+    println!("{}", output);
+
+    Ok(())
+}
+
+fn run_repl() -> Result<(), anyhow::Error> {
     let stdin = std::io::stdin();
     let mut buffer = String::new();
 
     let mut script = CompiledScript::new();
+
+    println!("harald REPL");
 
     loop {
         print!("> ");
@@ -69,6 +85,19 @@ fn main() -> Result<(), anyhow::Error> {
             }
         }
     }
+
+    Ok(())
+}
+
+fn main() -> Result<(), anyhow::Error> {
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+
+    let file_path = args.get(0);
+
+    match file_path {
+        Some(file_path) => run_file(&file_path)?,
+        None => run_repl()?,
+    };
 
     Ok(())
 }

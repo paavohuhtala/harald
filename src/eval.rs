@@ -1,5 +1,5 @@
 use crate::ast;
-use rand::distributions::weighted::alias_method::WeightedIndex;
+use rand::{distributions::weighted::alias_method::WeightedIndex, prelude::Distribution};
 use std::{borrow::Cow, collections::HashMap};
 use thiserror::Error;
 
@@ -178,7 +178,10 @@ impl CompiledScript {
                 }
             }
             Expression::BagE(bag) => {
-                self.eval_expression(&bag.items[0], output)?;
+                let mut rng = rand::thread_rng();
+                let i = bag.distribution.sample(&mut rng);
+                let expression = &bag.items[i];
+                self.eval_expression(expression, output)?;
             }
         }
 
@@ -221,7 +224,7 @@ mod tests {
         })]);
 
         let mut output = String::new();
-        compiled.run(&mut output);
+        compiled.run(&mut output).unwrap();
 
         assert_eq!(output, "Hello, world!");
     }

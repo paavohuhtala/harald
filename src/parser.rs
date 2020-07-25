@@ -5,7 +5,7 @@ use nom::character::is_alphanumeric;
 use nom::combinator::{map, opt};
 use nom::multi::{many0, many1, separated_list};
 use nom::number::complete::float;
-use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::sequence::{delimited, terminated, tuple};
 use nom::IResult;
 
 use crate::ast::{Assignment, Bag, BagEntry, Expression, Pattern, Statement};
@@ -20,23 +20,25 @@ fn ws<'a>(input: &'a str) -> IResult<&str, ()> {
 }
 
 pub fn parse_bag_entry<'a>(input: &'a str) -> IResult<&'a str, BagEntry> {
+    let (input, ()) = ws(input)?;
     let (input, weight): (&str, Option<f32>) = opt(float)(input)?;
     let (input, ()) = ws(input)?;
-    let (input, value) = string_literal(input)?;
-    let value = Box::new(Expression::LiteralE(String::from(value)));
+    let (input, value) = parse_expression(input)?;
+    let value = Box::new(value);
 
     Ok((input, BagEntry { weight, value }))
 }
 
 pub fn parse_bag<'a>(input: &'a str) -> IResult<&'a str, Bag> {
-    let (input, items): (&str, Vec<BagEntry>) = preceded(
+    let (input, (_, _, items)) = tuple((
         tag("bag"),
+        ws,
         delimited(
             tag("["),
             separated_list(tag(","), terminated(parse_bag_entry, ws)),
             tag("]"),
         ),
-    )(input)?;
+    ))(input)?;
 
     Ok((input, Bag { items }))
 }
