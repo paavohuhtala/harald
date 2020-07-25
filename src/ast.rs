@@ -24,18 +24,19 @@ pub struct Bag {
 }
 
 #[derive(PartialEq, Debug)]
-pub struct Assignnment {
+pub struct Assignment {
     pub name: String,
     pub value: Box<Expression>,
 }
 
 #[derive(PartialEq, Debug)]
 pub enum Statement {
-    AssignmentS(Assignnment),
+    AssignmentS(Assignment),
 }
 
 #[derive(PartialEq, Debug)]
 pub enum Expression {
     LiteralE(String),
+    VariableE(String),
     BagE(Bag),
 }

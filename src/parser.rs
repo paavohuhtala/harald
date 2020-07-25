@@ -1,20 +1,21 @@
+use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while};
-use nom::character::complete::{char, space0};
+use nom::character::complete::{char, multispace0};
 use nom::character::is_alphanumeric;
-use nom::combinator::opt;
-use nom::multi::separated_list;
+use nom::combinator::{map, opt};
+use nom::multi::{many1, separated_list};
 use nom::number::complete::float;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
-use crate::ast::{Assignnment, Bag, BagEntry, Expression};
+use crate::ast::{Assignment, Bag, BagEntry, Expression, Statement};
 
 fn string_literal<'a>(input: &'a str) -> IResult<&str, &'a str> {
     delimited(char('"'), take_while(|c| c != '"'), char('"'))(input)
 }
 
 fn ws<'a>(input: &'a str) -> IResult<&str, ()> {
-    let (input, _) = space0(input)?;
+    let (input, _) = multispace0(input)?;
     Ok((input, ()))
 }
 
@@ -45,18 +46,44 @@ pub fn parse_variable(input: &str) -> IResult<&str, String> {
     Ok((input, String::from(name)))
 }
 
-pub fn parse_assignment(input: &str) -> IResult<&str, Assignnment> {
-    let (input, name) = parse_variable(input)?;
-    let (input, _) = tuple((ws, tag("="), ws))(input)?;
-    let (input, value) = parse_bag(input)?;
+pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
+    alt((
+        map(string_literal, |s| Expression::LiteralE(String::from(s))),
+        map(parse_bag, |bag| Expression::BagE(bag)),
+        map(parse_variable, Expression::VariableE),
+    ))(input)
+}
+
+pub fn parse_assignment(input: &str) -> IResult<&str, Assignment> {
+    let (input, (name, _, _, _, value)) =
+        tuple((parse_variable, ws, tag("="), ws, parse_expression))(input)?;
 
     Ok((
         input,
-        Assignnment {
+        Assignment {
             name,
-            value: Box::new(Expression::BagE(value)),
+            value: Box::new(value),
         },
     ))
+}
+
+pub fn parse_assignment_statement(input: &str) -> IResult<&str, Statement> {
+    map(parse_assignment, Statement::AssignmentS)(input)
+}
+
+fn parse_statement(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = ws(input)?;
+    // let (input, statement) = alt((parse_assignment_statement,))(input)?;
+    let (input, statement) = parse_assignment_statement(input)?;
+    let (input, _) = tuple((ws, char(';')))(input)?;
+    Ok((input, statement))
+}
+
+pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
+    let (input, statements) = many1(parse_statement)(input)?;
+    // Consume trailing whitespace
+    let (input, _) = ws(input)?;
+    Ok((input, statements))
 }
 
 #[cfg(test)]
@@ -107,13 +134,13 @@ mod tests {
 
     #[test]
     fn test_parse_assignment() {
-        use super::{parse_assignment, Assignnment, Bag, BagEntry, Expression};
+        use super::{parse_assignment, Assignment, Bag, BagEntry, Expression};
 
         assert_eq!(
             parse_assignment(r#"adjective = bag("Friendly", "Unfriendly")"#),
             Ok((
                 "",
-                Assignnment {
+                Assignment {
                     name: String::from("adjective"),
                     value: Box::new(Expression::BagE(Bag {
                         items: vec![
@@ -122,6 +149,54 @@ mod tests {
                         ],
                     })),
                 },
+            ))
+        );
+    }
+
+    #[test]
+    fn test_parse_assignment_literal() {
+        use super::{parse_assignment, Assignment, Expression};
+
+        assert_eq!(
+            parse_assignment(r#"secretWord = "hunter2""#),
+            Ok((
+                "",
+                Assignment {
+                    name: String::from("secretWord"),
+                    value: Box::new(Expression::LiteralE(String::from("hunter2")))
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn test_parse_program() {
+        use super::{parse_program, Assignment, Bag, BagEntry, Expression, Statement};
+
+        let program = r#"
+            adjective = bag("Friendly", "Unfriendly");
+            result = adjective;
+        "#;
+
+        assert_eq!(
+            parse_program(program),
+            Ok((
+                "",
+                vec![
+                    Statement::AssignmentS(Assignment {
+                        name: String::from("adjective"),
+                        value: Box::new(Expression::BagE(Bag {
+                            items: vec![
+                                BagEntry::from_string("Friendly"),
+                                BagEntry::from_string("Unfriendly")
+                            ],
+                        })),
+                    }),
+                    Statement::AssignmentS(Assignment {
+                        name: String::from("result"),
+                        value: Box::new(Expression::VariableE(String::from("adjective")))
+                    })
+                ]
             ))
         );
     }
