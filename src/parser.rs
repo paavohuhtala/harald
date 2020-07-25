@@ -32,9 +32,9 @@ pub fn parse_bag<'a>(input: &'a str) -> IResult<&'a str, Bag> {
     let (input, items): (&str, Vec<BagEntry>) = preceded(
         tag("bag"),
         delimited(
-            tag("("),
+            tag("["),
             separated_list(tag(","), terminated(parse_bag_entry, ws)),
-            tag(")"),
+            tag("]"),
         ),
     )(input)?;
 
@@ -119,7 +119,7 @@ mod tests {
         ];
 
         assert_eq!(
-            parse_bag(r#"bag("epic", "awesome", "cool")"#),
+            parse_bag(r#"bag["epic", "awesome", "cool"]"#),
             Ok((
                 "",
                 Bag {
@@ -148,7 +148,7 @@ mod tests {
         use super::{parse_assignment, Assignment, Bag, BagEntry, Expression};
 
         assert_eq!(
-            parse_assignment(r#"adjective = bag("Friendly", "Unfriendly")"#),
+            parse_assignment(r#"adjective = bag["Friendly", "Unfriendly"]"#),
             Ok((
                 "",
                 Assignment {
@@ -185,7 +185,7 @@ mod tests {
         use super::{parse_program, Assignment, Bag, BagEntry, Expression, Statement};
 
         let program = r#"
-            adjective = bag("Friendly", "Unfriendly");
+            adjective = bag["Friendly", "Unfriendly"];
             result = adjective;
         "#;
 

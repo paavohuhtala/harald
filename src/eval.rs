@@ -1,6 +1,7 @@
 use crate::ast;
 use rand::distributions::weighted::alias_method::WeightedIndex;
 use std::{borrow::Cow, collections::HashMap};
+use thiserror::Error;
 
 enum Value<'a> {
     StringV(Cow<'a, str>),
@@ -79,6 +80,12 @@ struct ExecutionContext {
     bag_ctx: BagContext,
 }*/
 
+#[derive(Error, Debug)]
+pub enum InterpreterError {
+    #[error("Unknown variable: {0}")]
+    UnknownVariable(String),
+}
+
 #[derive(Debug)]
 pub struct CompiledScript {
     variables: HashMap<String, Expression>,
@@ -137,16 +144,22 @@ impl CompiledScript {
         }
     }
 
-    pub fn run(&self, output: &mut impl StringWritable) {
+    pub fn run(&self, output: &mut impl StringWritable) -> Result<(), InterpreterError> {
         let entry = self
             .variables
             .get("result")
             .expect("Expected result to be defined.");
 
-        self.eval_expression(entry, output);
+        self.eval_expression(entry, output)?;
+
+        Ok(())
     }
 
-    pub fn eval_expression(&self, expression: &Expression, output: &mut impl StringWritable) {
+    pub fn eval_expression(
+        &self,
+        expression: &Expression,
+        output: &mut impl StringWritable,
+    ) -> Result<(), InterpreterError> {
         match expression {
             Expression::LiteralE(literal) => {
                 output.append_str(literal);
@@ -155,19 +168,21 @@ impl CompiledScript {
                 let expression = self
                     .variables
                     .get(variable)
-                    .expect(&format!("Unknown variable: {}", variable));
+                    .ok_or_else(|| InterpreterError::UnknownVariable(variable.clone()))?;
 
-                self.eval_expression(expression, output)
+                self.eval_expression(expression, output)?;
             }
             Expression::PatternE(pattern) => {
                 for part in &pattern.parts {
-                    self.eval_expression(part, output);
+                    self.eval_expression(part, output)?;
                 }
             }
             Expression::BagE(bag) => {
-                self.eval_expression(&bag.items[0], output);
+                self.eval_expression(&bag.items[0], output)?;
             }
         }
+
+        Ok(())
     }
 
     fn define_variable(&mut self, name: String, value: Expression) {

@@ -21,7 +21,7 @@ fn main() -> Result<(), anyhow::Error> {
         let command = buffer.trim();
 
         match command {
-            "!q" => {
+            ":q" => {
                 break;
             }
             statement if command.ends_with(";") => {
@@ -36,6 +36,7 @@ fn main() -> Result<(), anyhow::Error> {
                         }
 
                         script.add_statement(statement);
+                        println!("OK")
                     }
                 }
             }
@@ -54,9 +55,15 @@ fn main() -> Result<(), anyhow::Error> {
                         let expression = script.transform_expression(expression);
 
                         let mut result = String::new();
-                        script.eval_expression(&expression, &mut result);
 
-                        println!("< {}", result);
+                        match script.eval_expression(&expression, &mut result) {
+                            Ok(_) => {
+                                println!("< {}", result);
+                            }
+                            Err(err) => {
+                                println!("Error: {}", err);
+                            }
+                        }
                     }
                 }
             }

@@ -24,7 +24,7 @@ iceCream = { maybe(0.25 bag["chocolate" | "mint chip"]) " ice cream" }
 ## Example: fantasy RPG weapon generator
 
 ```
-adjective = bag["Awesome","Epic", "Legendary", "Worn"];
+adjective = bag["Awesome", "Epic", "Legendary", "Worn"];
 sword = prefix(bag("broad", "bastard", "long", "short", 2 ""), "sword");
 weaponType = bag(0.3 ...sword, "spear", "hammer", "bow", "staff", "dagger");
 ofSuffix = bag(2 "", { "of " bag["awesomeness", "epicness", "evilness"] });
