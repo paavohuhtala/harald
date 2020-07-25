@@ -18,7 +18,7 @@ A bag is an unordered container, which can be randomly sampled with a weighted d
 A pattern
 
 ```
-iceCream = ${ maybe(0.25 bag["chocolate" | "mint chip"]) " ice cream" }
+iceCream = { maybe(0.25 bag["chocolate" | "mint chip"]) " ice cream" }
 ```
 
 ## Example: fantasy RPG weapon generator
@@ -27,8 +27,8 @@ iceCream = ${ maybe(0.25 bag["chocolate" | "mint chip"]) " ice cream" }
 adjective = bag["Awesome","Epic", "Legendary", "Worn"];
 sword = prefix(bag("broad", "bastard", "long", "short", 2 ""), "sword");
 weaponType = bag(0.3 ...sword, "spear", "hammer", "bow", "staff", "dagger");
-ofSuffix = bag(2 "", $ { "of " bag["awesomeness", "epicness", "evilness"] });
-result = $ { adjective " " weaponType)};
+ofSuffix = bag(2 "", { "of " bag["awesomeness", "epicness", "evilness"] });
+result = { adjective " " weaponType)};
 ```
 
 ## Built-ins

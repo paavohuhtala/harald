@@ -7,3 +7,13 @@ edition = "2018"
 [dependencies]
 nom = "5.1.2"
 rand = "0.7.3"
+thiserror = "1.0.20"
+anyhow = "1.0.32"
+
+[lib]
+name = "harald"
+path = "src/lib.rs"
+
+[[bin]]
+name = "haraldi"
+path = "src/main.rs"

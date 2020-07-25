@@ -1,14 +1,14 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while};
+use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::{char, multispace0};
 use nom::character::is_alphanumeric;
 use nom::combinator::{map, opt};
-use nom::multi::{many1, separated_list};
+use nom::multi::{many0, many1, separated_list};
 use nom::number::complete::float;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
-use crate::ast::{Assignment, Bag, BagEntry, Expression, Statement};
+use crate::ast::{Assignment, Bag, BagEntry, Expression, Pattern, Statement};
 
 fn string_literal<'a>(input: &'a str) -> IResult<&str, &'a str> {
     delimited(char('"'), take_while(|c| c != '"'), char('"'))(input)
@@ -42,12 +42,23 @@ pub fn parse_bag<'a>(input: &'a str) -> IResult<&'a str, Bag> {
 }
 
 pub fn parse_variable(input: &str) -> IResult<&str, String> {
-    let (input, name) = take_while(|c| is_alphanumeric(c as u8))(input)?;
+    let (input, name) = take_while1(|c| is_alphanumeric(c as u8))(input)?;
     Ok((input, String::from(name)))
+}
+
+pub fn parse_pattern(input: &str) -> IResult<&str, Pattern> {
+    let (input, expressions) = delimited(
+        tag("{"),
+        many0(delimited(multispace0, parse_expression, multispace0)),
+        tag("}"),
+    )(input)?;
+
+    Ok((input, Pattern { parts: expressions }))
 }
 
 pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
     alt((
+        map(parse_pattern, |p| Expression::PatternE(p)),
         map(string_literal, |s| Expression::LiteralE(String::from(s))),
         map(parse_bag, |bag| Expression::BagE(bag)),
         map(parse_variable, Expression::VariableE),
@@ -71,7 +82,7 @@ pub fn parse_assignment_statement(input: &str) -> IResult<&str, Statement> {
     map(parse_assignment, Statement::AssignmentS)(input)
 }
 
-fn parse_statement(input: &str) -> IResult<&str, Statement> {
+pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
     let (input, _) = ws(input)?;
     // let (input, statement) = alt((parse_assignment_statement,))(input)?;
     let (input, statement) = parse_assignment_statement(input)?;
@@ -197,6 +208,24 @@ mod tests {
                         value: Box::new(Expression::VariableE(String::from("adjective")))
                     })
                 ]
+            ))
+        );
+    }
+
+    #[test]
+    fn test_parse_pattern() {
+        use super::{parse_expression, Expression, Pattern};
+
+        assert_eq!(
+            parse_expression(r#"{ "Hello " world }"#),
+            Ok((
+                "",
+                Expression::PatternE(Pattern {
+                    parts: vec![
+                        Expression::LiteralE(String::from("Hello ")),
+                        Expression::VariableE(String::from("world"))
+                    ]
+                })
             ))
         );
     }

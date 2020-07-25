@@ -1,33 +1,33 @@
 use crate::ast;
-use rand::distributions::weighted::alias_method::{Weight, WeightedIndex};
+use rand::distributions::weighted::alias_method::WeightedIndex;
 use std::{borrow::Cow, collections::HashMap};
-
-trait Evaluable {
-    fn eval<'a>(&'a self, ctx: &'a mut ExecutionContext) -> Value<'a>;
-}
 
 enum Value<'a> {
     StringV(Cow<'a, str>),
 }
 
 #[derive(Debug)]
-enum Expression {
-    LiteralE(String),
-    VariableE(String),
-}
-
-struct Pattern {
+pub struct Pattern {
     parts: Vec<Expression>,
 }
 
-struct RuntimeBag {
+#[derive(Debug)]
+pub struct Bag {
     id: usize,
     name: Option<String>,
     items: Vec<Expression>,
     distribution: WeightedIndex<f32>,
 }
 
-impl RuntimeBag {
+#[derive(Debug)]
+pub enum Expression {
+    LiteralE(String),
+    VariableE(String),
+    PatternE(Pattern),
+    BagE(Bag),
+}
+
+/* impl RuntimeBag {
     fn from_ast(id: usize, bag: ast::Bag) -> Self {
         /*let weights = bag
             .items
@@ -46,7 +46,7 @@ impl RuntimeBag {
 
         todo!()
     }
-}
+}*/
 
 pub trait StringWritable {
     fn append_str(&mut self, s: &str);
@@ -58,7 +58,7 @@ impl StringWritable for String {
     }
 }
 
-struct BagContext {
+/*struct BagContext {
     bag_counter: usize,
     bags: Vec<RuntimeBag>,
 }
@@ -77,19 +77,63 @@ impl BagContext {
 
 struct ExecutionContext {
     bag_ctx: BagContext,
-}
+}*/
 
 #[derive(Debug)]
 pub struct CompiledScript {
     variables: HashMap<String, Expression>,
+    id_counter: usize,
 }
 
 impl CompiledScript {
-    fn transform_expression(&mut self, expression: ast::Expression) -> Expression {
+    pub fn new() -> Self {
+        CompiledScript {
+            variables: HashMap::new(),
+            id_counter: 0,
+        }
+    }
+
+    pub fn transform_expression(&mut self, expression: ast::Expression) -> Expression {
         match expression {
             ast::Expression::LiteralE(literal) => Expression::LiteralE(literal),
             ast::Expression::VariableE(variable) => Expression::VariableE(variable),
-            ast::Expression::BagE(_) => todo!(),
+            ast::Expression::PatternE(pattern) => {
+                let parts = pattern
+                    .parts
+                    .into_iter()
+                    .map(|part| self.transform_expression(part))
+                    .collect();
+
+                Expression::PatternE(Pattern { parts })
+            }
+            ast::Expression::BagE(bag) => {
+                self.id_counter += 1;
+                let id = self.id_counter;
+
+                let mut weights = Vec::new();
+                let mut items = Vec::new();
+
+                for (weight, expression) in bag
+                    .items
+                    .into_iter()
+                    .map(|item| (item.weight, self.transform_expression(*item.value)))
+                {
+                    let weight = weight.unwrap_or(1.0);
+
+                    weights.push(weight);
+                    items.push(expression);
+                }
+
+                let bag = Bag {
+                    id,
+                    items,
+                    name: None,
+                    distribution: WeightedIndex::new(weights).unwrap(),
+                };
+
+                Expression::BagE(bag)
+            }
+            _ => todo!("unsupported expression"),
         }
     }
 
@@ -102,7 +146,7 @@ impl CompiledScript {
         self.eval_expression(entry, output);
     }
 
-    fn eval_expression(&self, expression: &Expression, output: &mut impl StringWritable) {
+    pub fn eval_expression(&self, expression: &Expression, output: &mut impl StringWritable) {
         match expression {
             Expression::LiteralE(literal) => {
                 output.append_str(literal);
@@ -115,26 +159,36 @@ impl CompiledScript {
 
                 self.eval_expression(expression, output)
             }
+            Expression::PatternE(pattern) => {
+                for part in &pattern.parts {
+                    self.eval_expression(part, output);
+                }
+            }
+            Expression::BagE(bag) => {
+                self.eval_expression(&bag.items[0], output);
+            }
         }
     }
 
     fn define_variable(&mut self, name: String, value: Expression) {
         self.variables.insert(name, value);
     }
+
+    pub fn add_statement(&mut self, statement: ast::Statement) {
+        match statement {
+            ast::Statement::AssignmentS(assignment) => {
+                let expression = self.transform_expression(*assignment.value);
+                self.define_variable(assignment.name, expression);
+            }
+        }
+    }
 }
 
 pub fn compile_script(statements: Vec<ast::Statement>) -> CompiledScript {
-    let mut script = CompiledScript {
-        variables: HashMap::new(),
-    };
+    let mut script = CompiledScript::new();
 
     for statement in statements {
-        match statement {
-            ast::Statement::AssignmentS(assignment) => {
-                let expression = script.transform_expression(*assignment.value);
-                script.define_variable(assignment.name, expression);
-            }
-        }
+        script.add_statement(statement);
     }
 
     script

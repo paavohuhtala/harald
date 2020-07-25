@@ -35,8 +35,14 @@ pub enum Statement {
 }
 
 #[derive(PartialEq, Debug)]
+pub struct Pattern {
+    pub parts: Vec<Expression>,
+}
+
+#[derive(PartialEq, Debug)]
 pub enum Expression {
     LiteralE(String),
     VariableE(String),
     BagE(Bag),
+    PatternE(Pattern),
 }
