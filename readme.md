@@ -21,6 +21,8 @@ A pattern
 iceCream = { maybe(0.25 bag["chocolate" | "mint chip"]) " ice cream" }
 ```
 
+## Evaluation semantics
+
 ## Example: fantasy RPG weapon generator
 
 ```

@@ -1,8 +1,8 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
-use nom::character::complete::{char, multispace0};
+use nom::character::complete::{alpha1, char, multispace0};
 use nom::character::{is_alphabetic, is_alphanumeric};
-use nom::combinator::{map, opt};
+use nom::combinator::{map, opt, recognize};
 use nom::multi::{many0, many1, separated_list};
 use nom::number::complete::float;
 use nom::sequence::{delimited, preceded, terminated, tuple};
@@ -46,9 +46,11 @@ pub fn parse_bag<'a>(input: &'a str) -> IResult<&'a str, Bag> {
     Ok((input, Bag { items }))
 }
 
-pub fn parse_variable(input: &str) -> IResult<&str, String> {
-    let (input, name) = take_while1(|c| is_alphanumeric(c as u8))(input)?;
-    Ok((input, String::from(name)))
+pub fn parse_identifier(input: &str) -> IResult<&str, &str> {
+    let first_letter = alpha1;
+    let rest = take_while(|b| is_alphanumeric(b as u8) || b == '_');
+    let identifier = preceded(first_letter, rest);
+    recognize(identifier)(input)
 }
 
 pub fn parse_pattern(input: &str) -> IResult<&str, Pattern> {
@@ -141,18 +143,18 @@ pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
         }),
         map(parse_table_dict, Expression::TableDictE),
         map(parse_bag, Expression::BagE),
-        map(parse_variable, Expression::VariableE),
+        map(parse_identifier, |s| Expression::VariableE(String::from(s))),
     ))(input)
 }
 
 pub fn parse_assignment(input: &str) -> IResult<&str, Assignment> {
     let (input, (name, _, _, _, value)) =
-        tuple((parse_variable, ws, tag("="), ws, parse_expression))(input)?;
+        tuple((parse_identifier, ws, tag("="), ws, parse_expression))(input)?;
 
     Ok((
         input,
         Assignment {
-            name,
+            name: name.to_string(),
             value: Box::new(value),
         },
     ))

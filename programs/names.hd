@@ -1,5 +1,5 @@
 first_name = table_dict [
-    [.base, .plural],
+    [.base, .possessive],
     ["Harald", +"in"],
     ["Helga", +"n"],
     ["Sven", +"in"],
