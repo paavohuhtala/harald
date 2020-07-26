@@ -1,5 +1,8 @@
 use crate::ast;
-use rand::{distributions::weighted::alias_method::WeightedIndex, prelude::Distribution};
+use rand::{
+    distributions::{weighted::alias_method::WeightedIndex, WeightedError},
+    prelude::Distribution,
+};
 use std::{borrow::Cow, collections::HashMap, fmt::Display};
 use thiserror::Error;
 
@@ -34,22 +37,20 @@ impl<'a> Display for Value<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::StringV(v) => f.write_str(v),
-            Value::BagV(bag) => write!(
-                f,
-                "bag ({})",
-                (bag.name)
-                    .as_ref()
-                    .map(|n| n.as_str())
-                    .unwrap_or("anonymous")
-            ),
-            Value::TableDictV(table_dict) => write!(
-                f,
-                "table_dict ({})",
-                (table_dict.name)
-                    .as_ref()
-                    .map(|n| n.as_str())
-                    .unwrap_or("anonymous")
-            ),
+            Value::BagV(bag) => {
+                if let Some(name_hint) = &bag.name_hint {
+                    write!(f, "bag ({:?})", name_hint)
+                } else {
+                    write!(f, "bag (anonymous)")
+                }
+            }
+            Value::TableDictV(table_dict) => {
+                if let Some(name_hint) = &table_dict.name_hint {
+                    write!(f, "table_dict ({:?})", name_hint)
+                } else {
+                    write!(f, "table_dict (anonymous)")
+                }
+            }
         }
     }
 }
@@ -61,14 +62,14 @@ pub struct Pattern {
 
 #[derive(Debug)]
 pub struct TableDict {
-    name: Option<String>,
+    name_hint: Option<NameHint>,
     bags: HashMap<String, Bag>,
 }
 
 #[derive(Debug)]
 pub struct Bag {
     id: usize,
-    name: Option<String>,
+    name_hint: Option<NameHint>,
     items: Vec<Expression>,
     distribution: WeightedIndex<f32>,
 }
@@ -80,30 +81,6 @@ pub enum Expression {
     PatternE(Pattern),
     BagE(Bag),
     TableDictE(TableDict),
-}
-
-impl Expression {
-    pub fn name_hint(&mut self, name: String) {
-        match self {
-            Expression::BagE(bag) => {
-                bag.name = Some(name);
-            }
-            Expression::TableDictE(table_dict) => {
-                table_dict.name = Some(name);
-            }
-            _ => {}
-        }
-    }
-}
-
-pub trait StringWritable {
-    fn append_str(&mut self, s: &str);
-}
-
-impl StringWritable for String {
-    fn append_str(&mut self, s: &str) {
-        self.push_str(s);
-    }
 }
 
 #[derive(Error, Debug)]
@@ -122,6 +99,41 @@ pub enum InterpreterError {
     },
 }
 
+#[derive(Error, Debug)]
+pub enum CompilerError {
+    #[error("A table_dict must have at least one column")]
+    EmptyTableDict,
+
+    #[error("A bag must have at least one item")]
+    EmptyBag,
+
+    #[error("Error on table_dict row {row_number}: expected {} columns ({expected_columns:?}), found {} values ({values:?})", .expected_columns.len(), values.len())]
+    InvalidTableDictRow {
+        expected_columns: Vec<String>,
+        values: Vec<ast::TableDictEntry>,
+        row_number: usize,
+    },
+
+    #[error("The fist item in a table_dict must be a literal (was {0:?}).")]
+    NonLiteralTableDictFirstPattern(ast::TableDictEntry),
+}
+
+#[derive(Error, Debug)]
+pub enum ExecutionError {
+    /*#[error("Parser error: {0}")]
+    Parser(#[from] nom::Err<(&str, nom::error::ErrorKind)>),*/
+    #[error("Compilation error: {0}")]
+    Compiler(#[from] CompilerError),
+    #[error("Interpreter error: {0}")]
+    Interpreter(#[from] InterpreterError),
+}
+
+#[derive(Debug, Clone)]
+pub enum NameHint {
+    InAssignment(String),
+    Repl,
+}
+
 #[derive(Debug)]
 pub struct CompiledScript {
     variables: HashMap<String, Expression>,
@@ -136,18 +148,24 @@ impl CompiledScript {
         }
     }
 
-    pub fn transform_expression(&mut self, expression: ast::Expression) -> Expression {
+    pub fn transform_expression(
+        &mut self,
+        expression: ast::Expression,
+        name_hint: &Option<NameHint>,
+    ) -> Result<Expression, CompilerError> {
         match expression {
-            ast::Expression::LiteralE(literal) => Expression::LiteralE(literal),
-            ast::Expression::VariableE(variable) => Expression::VariableE(variable),
+            ast::Expression::LiteralE(literal) => Ok(Expression::LiteralE(literal)),
+            ast::Expression::VariableE(variable) => Ok(Expression::VariableE(variable)),
             ast::Expression::PatternE(pattern) => {
-                let parts = pattern
+                let parts: Result<Vec<_>, _> = pattern
                     .parts
                     .into_iter()
-                    .map(|part| self.transform_expression(part))
+                    .map(|part| self.transform_expression(part, name_hint))
                     .collect();
 
-                Expression::PatternE(Pattern { parts })
+                let parts = parts?;
+
+                Ok(Expression::PatternE(Pattern { parts }))
             }
             ast::Expression::BagE(bag) => {
                 self.id_counter += 1;
@@ -156,25 +174,101 @@ impl CompiledScript {
                 let mut weights = Vec::new();
                 let mut items = Vec::new();
 
-                for (weight, expression) in bag
-                    .items
-                    .into_iter()
-                    .map(|item| (item.weight, self.transform_expression(*item.value)))
-                {
+                for (weight, expression) in bag.items.into_iter().map(|item| {
+                    (
+                        item.weight,
+                        self.transform_expression(*item.value, name_hint),
+                    )
+                }) {
+                    let expression = expression?;
+
                     let weight = weight.unwrap_or(1.0);
 
                     weights.push(weight);
                     items.push(expression);
                 }
 
+                let distribution = WeightedIndex::new(weights).map_err(|err| match err {
+                    WeightedError::NoItem => CompilerError::EmptyBag,
+                    _ => panic!("Unhandled WeightedIndex error: {}", err),
+                })?;
+
                 let bag = Bag {
                     id,
                     items,
-                    name: None,
-                    distribution: WeightedIndex::new(weights).unwrap(),
+                    name_hint: name_hint.clone(),
+                    distribution,
                 };
 
-                Expression::BagE(bag)
+                Ok(Expression::BagE(bag))
+            }
+            ast::Expression::TableDictE(table_dict) => {
+                if table_dict.columns.len() < 1 {
+                    return Err(CompilerError::EmptyTableDict);
+                }
+
+                let mut items_per_column = vec![Vec::new(); table_dict.columns.len()];
+
+                for (row_number, row) in table_dict.rows.into_iter().enumerate() {
+                    if row.items.len() != table_dict.columns.len() {
+                        return Err(CompilerError::InvalidTableDictRow {
+                            row_number,
+                            expected_columns: table_dict.columns.clone(),
+                            values: row.items.clone(),
+                        });
+                    }
+
+                    let base_item = row.items[0].clone();
+
+                    let base_item = match base_item {
+                        ast::TableDictEntry::Literal(s) => s,
+                        ast::TableDictEntry::Append(_) => {
+                            return Err(CompilerError::NonLiteralTableDictFirstPattern(base_item));
+                        }
+                    };
+
+                    for (column_number, item) in row.items.into_iter().enumerate() {
+                        let item_text = match item {
+                            ast::TableDictEntry::Literal(s) => s,
+                            ast::TableDictEntry::Append(mut s) => {
+                                // Mutate the string to avoid a new allocation
+                                s.insert_str(0, &base_item);
+                                s
+                            }
+                        };
+
+                        items_per_column[column_number].push(item_text);
+                    }
+                }
+
+                let mut bags = HashMap::new();
+
+                for (column_items, column) in items_per_column.into_iter().zip(table_dict.columns) {
+                    self.id_counter += 1;
+                    let id = self.id_counter;
+
+                    // TODO: implement weights
+                    let distribution = WeightedIndex::new(vec![1.0; column_items.len()]).unwrap();
+
+                    // TODO: implement arbitrary expressions?
+                    let items = column_items.into_iter().map(Expression::LiteralE).collect();
+
+                    let bag = Bag {
+                        id,
+                        distribution,
+                        items,
+                        name_hint: name_hint.clone(),
+                    };
+
+                    bags.insert(column, bag);
+                }
+
+                println!("{:?}", bags);
+
+                Ok(Expression::TableDictE(TableDict {
+                    name_hint: name_hint.clone(),
+                    bags: HashMap::new(),
+                }))
             }
             _ => todo!("unsupported expression"),
         }
@@ -245,26 +339,27 @@ impl CompiledScript {
         self.variables.insert(name, value);
     }
 
-    pub fn add_statement(&mut self, statement: ast::Statement) {
+    pub fn add_statement(&mut self, statement: ast::Statement) -> Result<(), CompilerError> {
         match statement {
             ast::Statement::AssignmentS(assignment) => {
-                let mut expression = self.transform_expression(*assignment.value);
-                expression.name_hint(assignment.name.clone());
-
+                let name_hint = Some(NameHint::InAssignment(assignment.name.clone()));
+                let expression = self.transform_expression(*assignment.value, &name_hint)?;
                 self.define_variable(assignment.name, expression);
             }
         }
+
+        Ok(())
     }
 }
 
-pub fn compile_script(statements: Vec<ast::Statement>) -> CompiledScript {
+pub fn compile_script(statements: Vec<ast::Statement>) -> Result<CompiledScript, CompilerError> {
     let mut script = CompiledScript::new();
 
     for statement in statements {
-        script.add_statement(statement);
+        script.add_statement(statement)?;
     }
 
-    script
+    Ok(script)
 }
 
 #[cfg(test)]
@@ -276,7 +371,8 @@ mod tests {
         let compiled = compile_script(vec![ast::Statement::AssignmentS(ast::Assignment {
             name: String::from("result"),
             value: Box::new(ast::Expression::LiteralE(String::from("Hello, world!"))),
-        })]);
+        })])
+        .unwrap();
 
         let output = compiled.run().unwrap();
         assert_eq!(output, "Hello, world!");

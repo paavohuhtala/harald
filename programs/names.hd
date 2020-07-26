@@ -24,6 +24,6 @@ first_name = table_dict [
     ["Peppi", "Pepin"],
     ["Eemil", "Eemilin"],
     ["Eemeli", "Eemelin"]
-]
+];
 
-result = first_name.base
+result = "xd";

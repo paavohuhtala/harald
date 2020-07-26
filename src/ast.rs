@@ -49,7 +49,7 @@ pub enum Expression {
     TableDictE(TableDict),
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum TableDictEntry {
     Literal(String),
     Append(String),
