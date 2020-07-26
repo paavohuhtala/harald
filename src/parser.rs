@@ -1,16 +1,19 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::{char, multispace0};
-use nom::character::is_alphanumeric;
+use nom::character::{is_alphabetic, is_alphanumeric};
 use nom::combinator::{map, opt};
 use nom::multi::{many0, many1, separated_list};
 use nom::number::complete::float;
-use nom::sequence::{delimited, terminated, tuple};
+use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::IResult;
 
-use crate::ast::{Assignment, Bag, BagEntry, Expression, Pattern, Statement};
+use crate::ast::{
+    Assignment, Bag, BagEntry, Expression, Pattern, Statement, TableDict, TableDictEntry,
+    TableDictRow,
+};
 
-fn string_literal<'a>(input: &'a str) -> IResult<&str, &'a str> {
+fn parse_string_literal<'a>(input: &'a str) -> IResult<&str, &'a str> {
     delimited(char('"'), take_while(|c| c != '"'), char('"'))(input)
 }
 
@@ -50,19 +53,94 @@ pub fn parse_variable(input: &str) -> IResult<&str, String> {
 
 pub fn parse_pattern(input: &str) -> IResult<&str, Pattern> {
     let (input, expressions) = delimited(
-        tag("{"),
+        char('{'),
         many0(delimited(multispace0, parse_expression, multispace0)),
-        tag("}"),
+        char('}'),
     )(input)?;
 
     Ok((input, Pattern { parts: expressions }))
 }
 
+pub fn parse_table_dict_header(input: &str) -> IResult<&str, Vec<String>> {
+    let (input, columns) = delimited(
+        char('['),
+        separated_list(
+            tag(","),
+            delimited(
+                multispace0,
+                preceded(char('.'), take_while1(|c| is_alphabetic(c as u8))),
+                multispace0,
+            ),
+        ),
+        char(']'),
+    )(input)?;
+
+    Ok((input, columns.into_iter().map(String::from).collect()))
+}
+
+pub fn parse_table_dict_entry(input: &str) -> IResult<&str, TableDictEntry> {
+    let (input, prefix): (&str, Option<char>) = opt(char('+'))(input)?;
+    let (input, _) = ws(input)?;
+    let is_append = prefix.is_some();
+    let (input, word) = parse_string_literal(input)?;
+    let word = String::from(word);
+
+    Ok((
+        input,
+        match is_append {
+            true => TableDictEntry::Append(word),
+            false => TableDictEntry::Literal(word),
+        },
+    ))
+}
+
+pub fn parse_table_dict_row(input: &str) -> IResult<&str, TableDictRow> {
+    let (input, weight) = opt(float)(input)?;
+    let (input, _) = ws(input)?;
+
+    let (input, items) = delimited(
+        char('['),
+        separated_list(
+            tag(","),
+            delimited(multispace0, parse_table_dict_entry, multispace0),
+        ),
+        char(']'),
+    )(input)?;
+
+    Ok((input, TableDictRow { items, weight }))
+}
+
+pub fn parse_table_dict(input: &str) -> IResult<&str, TableDict> {
+    let (input, (columns, rows)) = preceded(
+        tag("table_dict"),
+        preceded(
+            ws,
+            delimited(
+                char('['),
+                delimited(
+                    ws,
+                    tuple((
+                        terminated(parse_table_dict_header, tuple((ws, char(','), ws))),
+                        separated_list(char(','), parse_table_dict_row),
+                    )),
+                    ws,
+                ),
+                char(']'),
+            ),
+        ),
+    )(input)?;
+
+    Ok((input, TableDict { columns, rows }))
+}
+
 pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
     alt((
-        map(parse_pattern, |p| Expression::PatternE(p)),
-        map(string_literal, |s| Expression::LiteralE(String::from(s))),
-        map(parse_bag, |bag| Expression::BagE(bag)),
+        map(parse_pattern, Expression::PatternE),
+        map(parse_string_literal, |s| {
+            Expression::LiteralE(String::from(s))
+        }),
+        map(parse_table_dict, Expression::TableDictE),
+        map(parse_bag, Expression::BagE),
         map(parse_variable, Expression::VariableE),
     ))(input)
 }
@@ -103,9 +181,9 @@ pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
 mod tests {
     #[test]
     fn test_parse_string_literal() {
-        use super::string_literal;
+        use super::parse_string_literal;
         assert_eq!(
-            string_literal(r#""Hello, world!""#),
+            parse_string_literal(r#""Hello, world!""#),
             Ok(("", "Hello, world!"))
         );
     }
@@ -230,5 +308,104 @@ mod tests {
                 })
             ))
         );
+    }
+
+    #[test]
+    fn test_parse_table_dict_entry() {
+        use super::{parse_table_dict_entry, TableDictEntry};
+
+        assert_eq!(
+            parse_table_dict_entry(r#""Harald""#),
+            Ok(("", TableDictEntry::Literal(String::from("Harald"))))
+        );
+
+        assert_eq!(
+            parse_table_dict_entry(r#"+"in""#),
+            Ok(("", TableDictEntry::Append(String::from("in"))))
+        );
+    }
+
+    #[test]
+    fn test_parse_table_dict_row() {
+        use super::{parse_table_dict_row, TableDictEntry, TableDictRow};
+
+        assert_eq!(
+            parse_table_dict_row(r#"["unicorn", "unicorns"]"#),
+            Ok((
+                "",
+                TableDictRow {
+                    weight: None,
+                    items: vec![
+                        TableDictEntry::Literal(String::from("unicorn")),
+                        TableDictEntry::Literal(String::from("unicorns"))
+                    ]
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_table_dict_row(r#"["unicorn", +"s"]"#),
+            Ok((
+                "",
+                TableDictRow {
+                    weight: None,
+                    items: vec![
+                        TableDictEntry::Literal(String::from("unicorn")),
+                        TableDictEntry::Append(String::from("s"))
+                    ]
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_table_dict_row(r#"[  "unicorn"  , + "s"   ]"#),
+            Ok((
+                "",
+                TableDictRow {
+                    weight: None,
+                    items: vec![
+                        TableDictEntry::Literal(String::from("unicorn")),
+                        TableDictEntry::Append(String::from("s"))
+                    ]
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn test_parse_table_dict() {
+        use super::{parse_table_dict, TableDict, TableDictEntry, TableDictRow};
+
+        let table_dict = r#"table_dict [
+            [.base, .plural],
+            ["unicorn", "unicorns"],
+            ["kitten", +"s"]
+        ]"#;
+
+        assert_eq!(
+            parse_table_dict(table_dict),
+            Ok((
+                "",
+                TableDict {
+                    columns: vec![String::from("base"), String::from("plural")],
+                    rows: vec![
+                        TableDictRow {
+                            weight: None,
+                            items: vec![
+                                TableDictEntry::Literal(String::from("unicorn")),
+                                TableDictEntry::Literal(String::from("unicorns"))
+                            ]
+                        },
+                        TableDictRow {
+                            weight: None,
+                            items: vec![
+                                TableDictEntry::Literal(String::from("kitten")),
+                                TableDictEntry::Append(String::from("s"))
+                            ]
+                        }
+                    ]
+                }
+            ))
+        )
     }
 }
