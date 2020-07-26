@@ -1,15 +1,50 @@
 use crate::ast;
 use rand::{distributions::weighted::alias_method::WeightedIndex, prelude::Distribution};
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, fmt::Display};
 use thiserror::Error;
 
-enum Value<'a> {
+#[derive(Debug)]
+pub enum Value<'a> {
     StringV(Cow<'a, str>),
+    BagV(&'a Bag),
+}
+
+impl<'a> Value<'a> {
+    pub fn get_type_name(&self) -> &'static str {
+        match self {
+            Value::StringV(_) => "string",
+            Value::BagV(_) => "bag",
+        }
+    }
+
+    pub fn try_as_string(self) -> Result<Cow<'a, str>, InterpreterError> {
+        match self {
+            Value::StringV(s) => Ok(s),
+            otherwise => Err(InterpreterError::UnexpectedType {
+                expected: "string",
+                was: otherwise.get_type_name(),
+            }),
+        }
+    }
+}
+
+impl<'a> Display for Value<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::StringV(v) => f.write_str(v),
+            Value::BagV(bag) => write!(f, "[Bag {}]", bag.id),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct Pattern {
     parts: Vec<Expression>,
+}
+
+#[derive(Debug)]
+pub struct TableDict {
+    bags: HashMap<String, Bag>,
 }
 
 #[derive(Debug)]
@@ -28,27 +63,6 @@ pub enum Expression {
     BagE(Bag),
 }
 
-/* impl RuntimeBag {
-    fn from_ast(id: usize, bag: ast::Bag) -> Self {
-        /*let weights = bag
-            .items
-            .iter()
-            .map(|item| item.weight.unwrap_or(1.0))
-            .collect::<Vec<_>>();
-        let items = bag.items.into_iter().map(|item| item.value);
-        let distribution = WeightedIndex::new(weights).unwrap();
-
-        RuntimeBag {
-            id,
-            name: None,
-            items,
-            distribution,
-        }*/
-
-        todo!()
-    }
-}*/
-
 pub trait StringWritable {
     fn append_str(&mut self, s: &str);
 }
@@ -59,31 +73,15 @@ impl StringWritable for String {
     }
 }
 
-/*struct BagContext {
-    bag_counter: usize,
-    bags: Vec<RuntimeBag>,
-}
-
-struct BagHandle(usize);
-
-impl BagContext {
-    fn create_bag_from_ast(&mut self, bag: ast::Bag) -> BagHandle {
-        todo!()
-    }
-
-    fn sample<'a>(&'a mut self, handle: BagHandle) -> Value<'a> {
-        todo!()
-    }
-}
-
-struct ExecutionContext {
-    bag_ctx: BagContext,
-}*/
-
 #[derive(Error, Debug)]
 pub enum InterpreterError {
     #[error("Unknown variable: {0}")]
     UnknownVariable(String),
+    #[error("Unexpected type: expected {expected}, was {was}")]
+    UnexpectedType {
+        expected: &'static str,
+        was: &'static str,
+    },
 }
 
 #[derive(Debug)]
@@ -144,48 +142,49 @@ impl CompiledScript {
         }
     }
 
-    pub fn run(&self, output: &mut impl StringWritable) -> Result<(), InterpreterError> {
+    pub fn run(&self) -> Result<String, InterpreterError> {
         let entry = self
             .variables
             .get("result")
             .expect("Expected result to be defined.");
 
-        self.eval_expression(entry, output)?;
-
-        Ok(())
+        self.eval_expression(entry)?
+            .try_as_string()
+            .map(Cow::into_owned)
     }
 
-    pub fn eval_expression(
-        &self,
-        expression: &Expression,
-        output: &mut impl StringWritable,
-    ) -> Result<(), InterpreterError> {
+    pub fn eval_expression<'a>(
+        &'a self,
+        expression: &'a Expression,
+    ) -> Result<Value<'a>, InterpreterError> {
         match expression {
-            Expression::LiteralE(literal) => {
-                output.append_str(literal);
-            }
+            Expression::LiteralE(literal) => Ok(Value::StringV(Cow::from(literal))),
             Expression::VariableE(variable) => {
                 let expression = self
                     .variables
                     .get(variable)
                     .ok_or_else(|| InterpreterError::UnknownVariable(variable.clone()))?;
 
-                self.eval_expression(expression, output)?;
+                self.eval_expression(expression)
             }
             Expression::PatternE(pattern) => {
+                let mut combined = String::new();
+
                 for part in &pattern.parts {
-                    self.eval_expression(part, output)?;
+                    let part = self.eval_expression(part)?.try_as_string()?;
+                    combined.push_str(&part);
                 }
+
+                Ok(Value::StringV(Cow::from(combined)))
             }
             Expression::BagE(bag) => {
                 let mut rng = rand::thread_rng();
                 let i = bag.distribution.sample(&mut rng);
                 let expression = &bag.items[i];
-                self.eval_expression(expression, output)?;
+
+                self.eval_expression(expression)
             }
         }
-
-        Ok(())
     }
 
     fn define_variable(&mut self, name: String, value: Expression) {
@@ -214,18 +213,16 @@ pub fn compile_script(statements: Vec<ast::Statement>) -> CompiledScript {
 
 #[cfg(test)]
 mod tests {
+    use super::{ast, compile_script};
+
     #[test]
     fn test_eval_literal() {
-        use super::{ast, compile_script};
-
         let compiled = compile_script(vec![ast::Statement::AssignmentS(ast::Assignment {
             name: String::from("result"),
             value: Box::new(ast::Expression::LiteralE(String::from("Hello, world!"))),
         })]);
 
-        let mut output = String::new();
-        compiled.run(&mut output).unwrap();
-
+        let output = compiled.run().unwrap();
         assert_eq!(output, "Hello, world!");
     }
 }

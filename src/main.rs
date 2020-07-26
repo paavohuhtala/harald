@@ -12,8 +12,7 @@ fn run_file(path: &str) -> Result<(), anyhow::Error> {
 
     let script = compile_script(&source);
 
-    let mut output = String::new();
-    script.run(&mut output)?;
+    let output = script.run()?;
     println!("{}", output);
 
     Ok(())
@@ -70,10 +69,8 @@ fn run_repl() -> Result<(), anyhow::Error> {
 
                         let expression = script.transform_expression(expression);
 
-                        let mut result = String::new();
-
-                        match script.eval_expression(&expression, &mut result) {
-                            Ok(_) => {
+                        match script.eval_expression(&expression) {
+                            Ok(result) => {
                                 println!("< {}", result);
                             }
                             Err(err) => {
