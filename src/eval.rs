@@ -81,6 +81,7 @@ pub enum Expression {
     PatternE(Pattern),
     BagE(Bag),
     TableDictE(TableDict),
+    PropertyAccessE(Box<Expression>, String),
 }
 
 #[derive(Error, Debug)]
@@ -97,6 +98,12 @@ pub enum InterpreterError {
         target: &'static str,
         was: &'static str,
     },
+
+    #[error("Object of type {was} has no property \"{key}\".")]
+    CannotBeIndexed { was: &'static str, key: String },
+
+    #[error("table_dict with columns {columns:?} has no key \"{key}\"")]
+    TableDictMissingProperty { columns: Vec<String>, key: String },
 }
 
 #[derive(Error, Debug)]
@@ -263,12 +270,14 @@ impl CompiledScript {
                     bags.insert(column, bag);
                 }
 
-                println!("{:?}", bags);
-
                 Ok(Expression::TableDictE(TableDict {
                     name_hint: name_hint.clone(),
-                    bags: HashMap::new(),
+                    bags,
                 }))
+            }
+            ast::Expression::PropertyAccessE(expression, property) => {
+                let expression = self.transform_expression(*expression, name_hint)?;
+                Ok(Expression::PropertyAccessE(Box::new(expression), property))
             }
             _ => todo!("unsupported expression"),
         }
@@ -292,10 +301,7 @@ impl CompiledScript {
         match value {
             Value::StringV(v) => Ok(v),
             Value::BagV(bag) => {
-                let mut rng = rand::thread_rng();
-                let i = bag.distribution.sample(&mut rng);
-                let expression = &bag.items[i];
-                let value = self.eval_expression(expression)?;
+                let value = self.sample_bag(bag)?;
                 self.try_coerce_to_string(value)
             }
             otherwise => Err(InterpreterError::CoercionError {
@@ -303,6 +309,13 @@ impl CompiledScript {
                 was: otherwise.get_type_name(),
             }),
         }
+    }
+
+    fn sample_bag<'a>(&'a self, bag: &'a Bag) -> Result<Value<'a>, InterpreterError> {
+        let mut rng = rand::thread_rng();
+        let i = bag.distribution.sample(&mut rng);
+        let expression = &bag.items[i];
+        self.eval_expression(expression)
     }
 
     pub fn eval_expression<'a>(
@@ -332,6 +345,27 @@ impl CompiledScript {
             }
             Expression::BagE(bag) => Ok(Value::BagV(bag)),
             Expression::TableDictE(table_dict) => Ok(Value::TableDictV(table_dict)),
+            Expression::PropertyAccessE(expression, property) => {
+                let value = self.eval_expression(expression)?;
+
+                match value {
+                    Value::TableDictV(table_dict) => {
+                        let bag = table_dict.bags.get(property);
+
+                        match bag {
+                            None => Err(InterpreterError::TableDictMissingProperty {
+                                columns: table_dict.bags.keys().map(String::from).collect(),
+                                key: property.clone(),
+                            }),
+                            Some(bag) => Ok(Value::BagV(bag)),
+                        }
+                    }
+                    otherwise => Err(InterpreterError::CannotBeIndexed {
+                        was: otherwise.get_type_name(),
+                        key: property.clone(),
+                    }),
+                }
+            }
         }
     }
 

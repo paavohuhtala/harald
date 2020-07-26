@@ -6,24 +6,7 @@ first_name = table_dict [
     ["Asterix", +"in"],
     ["Obelix", +"in"],
     ["Conan", +"in"],
-    ["Thor", "Thorin"],
-    ["Björn", "Björnin"],
-    ["Sigurd", "Sigurdin"],
-    ["Ragnar", "Ragnarin"],
-    ["Loki", "Lokin"],
-    ["Fredrik", "Fredrikin"],
-    ["Torbjörn", "Torbjörnin"],
-    ["Väinämöinen", "Väinämöisen"],
-    ["Mielikki", "Mielikin"],
-    ["Ilmatar", "Ilmattaren"],
-    ["Ilmarinen", "Ilmarisen"],
-    ["Joukahainen", "Joukahaisen"],
-    ["Freija", "Freijan"],
-    ["Odin", "Odinin"],
-    ["Arvid", "Arvidin"],
-    ["Peppi", "Pepin"],
-    ["Eemil", "Eemilin"],
-    ["Eemeli", "Eemelin"]
+    ["Thor", "Thorin"]
 ];
 
-result = "xd";
+result = { first_name.possessive };

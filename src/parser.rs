@@ -135,6 +135,19 @@ pub fn parse_table_dict(input: &str) -> IResult<&str, TableDict> {
     Ok((input, TableDict { columns, rows }))
 }
 
+pub fn parse_property_access(input: &str) -> IResult<&str, Expression> {
+    // TODO: Support other expressions.
+    let (input, identifier) = parse_identifier(input)?;
+    let expression = Expression::VariableE(String::from(identifier));
+
+    let (input, property) = preceded(char('.'), parse_identifier)(input)?;
+
+    Ok((
+        input,
+        Expression::PropertyAccessE(Box::new(expression), String::from(property)),
+    ))
+}
+
 pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
     alt((
         map(parse_pattern, Expression::PatternE),
@@ -143,6 +156,7 @@ pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
         }),
         map(parse_table_dict, Expression::TableDictE),
         map(parse_bag, Expression::BagE),
+        parse_property_access,
         map(parse_identifier, |s| Expression::VariableE(String::from(s))),
     ))(input)
 }
