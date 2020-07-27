@@ -228,28 +228,34 @@ impl CompiledScript {
                     let base_item = row.items[0].clone();
 
                     let base_item = match base_item {
-                        ast::TableDictEntry::Literal(s) => self.transform_expression(*s, name_hint),
-                        ast::TableDictEntry::Append(_) => {
-                            return Err(CompilerError::NonLiteralTableDictFirstPattern(base_item));
+                        ast::TableDictEntry::Literal(s) => {
+                            self.transform_expression(*s, name_hint)?
                         }
-                    }?;
+                        _ => Expression::LiteralE(String::new()),
+                    };
 
                     for (column_number, item) in row.items.into_iter().enumerate() {
-                        let item_text = match item {
+                        let maybe_expr = match item {
+                            ast::TableDictEntry::Hole => None,
                             ast::TableDictEntry::Literal(expr) => {
-                                self.transform_expression(*expr, name_hint)?
+                                Some(self.transform_expression(*expr, name_hint)?)
                             }
                             ast::TableDictEntry::Append(expr) => {
                                 let expr = self.transform_expression(*expr, name_hint)?;
 
-                                Expression::PatternE(Pattern {
+                                Some(Expression::PatternE(Pattern {
                                     // TODO: Avoid this clone?
                                     parts: vec![base_item.clone(), expr],
-                                })
+                                }))
                             }
                         };
 
-                        items_per_column[column_number].push(item_text);
+                        match maybe_expr {
+                            Some(expr) => {
+                                items_per_column[column_number].push(expr);
+                            }
+                            None => {}
+                        }
                     }
                 }
 

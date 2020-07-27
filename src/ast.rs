@@ -51,6 +51,7 @@ pub enum Expression {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TableDictEntry {
+    Hole,
     Literal(Box<Expression>),
     Append(Box<Expression>),
 }

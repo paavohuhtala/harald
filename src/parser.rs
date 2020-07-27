@@ -2,7 +2,7 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::{alpha1, char, multispace0};
 use nom::character::{is_alphabetic, is_alphanumeric};
-use nom::combinator::{map, opt, recognize};
+use nom::combinator::{all_consuming, map, opt, recognize};
 use nom::multi::{many0, many1, separated_list};
 use nom::number::complete::float;
 use nom::sequence::{delimited, preceded, terminated, tuple};
@@ -81,6 +81,13 @@ pub fn parse_table_dict_header(input: &str) -> IResult<&str, Vec<String>> {
 }
 
 pub fn parse_table_dict_entry(input: &str) -> IResult<&str, TableDictEntry> {
+    let (input, placeholder) = opt(char('_'))(input)?;
+
+    if placeholder.is_some() {
+        let (input, _) = ws(input)?;
+        return Ok((input, TableDictEntry::Hole));
+    }
+
     let (input, prefix): (&str, Option<char>) = opt(char('+'))(input)?;
     let (input, _) = ws(input)?;
     let is_append = prefix.is_some();
@@ -186,9 +193,7 @@ pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
 }
 
 pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
-    let (input, statements) = many1(parse_statement)(input)?;
-    // Consume trailing whitespace
-    let (input, _) = ws(input)?;
+    let (input, statements) = all_consuming(terminated(many1(parse_statement), ws))(input)?;
     Ok((input, statements))
 }
 

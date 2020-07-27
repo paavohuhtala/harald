@@ -1,0 +1,8 @@
+
+test_table = table_dict [
+    [.a, .b],
+    [_, "b"],
+    ["a", _]
+];
+
+result = { test_table.a " " test_table.b };
