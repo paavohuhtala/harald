@@ -2,58 +2,72 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::{alpha1, char, multispace0};
 use nom::character::{is_alphabetic, is_alphanumeric};
-use nom::combinator::{all_consuming, map, opt, recognize};
+use nom::combinator::{all_consuming, cut, map, opt, recognize};
 use nom::multi::{many0, many1, separated_list};
 use nom::number::complete::float;
 use nom::sequence::{delimited, preceded, terminated, tuple};
-use nom::IResult;
+use nom::{
+    error::{context, VerboseError},
+    IResult,
+};
+
+type ParseResult<'a, T> = IResult<&'a str, T, VerboseError<&'a str>>;
 
 use crate::ast::{
     Assignment, Bag, BagEntry, Expression, Pattern, Statement, TableDict, TableDictEntry,
     TableDictRow,
 };
 
-fn parse_string_literal<'a>(input: &'a str) -> IResult<&str, &'a str> {
-    delimited(char('"'), take_while(|c| c != '"'), char('"'))(input)
+fn parse_string_literal<'a>(input: &'a str) -> ParseResult<&'a str> {
+    context(
+        "string literal",
+        delimited(
+            char('"'),
+            cut(take_while(|c| c != '"' && c != '\n')),
+            char('"'),
+        ),
+    )(input)
 }
 
-fn ws<'a>(input: &'a str) -> IResult<&str, ()> {
+fn ws<'a>(input: &'a str) -> ParseResult<()> {
     let (input, _) = multispace0(input)?;
     Ok((input, ()))
 }
 
-pub fn parse_bag_entry<'a>(input: &'a str) -> IResult<&'a str, BagEntry> {
-    let (input, ()) = ws(input)?;
-    let (input, weight): (&str, Option<f32>) = opt(float)(input)?;
-    let (input, ()) = ws(input)?;
-    let (input, value) = parse_expression(input)?;
+pub fn parse_bag_entry<'a>(input: &'a str) -> ParseResult<BagEntry> {
+    let (input, (_, weight, _, value)) =
+        context("bag entry", tuple((ws, opt(float), ws, parse_expression)))(input)?;
+
     let value = Box::new(value);
 
     Ok((input, BagEntry { weight, value }))
 }
 
-pub fn parse_bag<'a>(input: &'a str) -> IResult<&'a str, Bag> {
-    let (input, (_, _, items)) = tuple((
-        tag("bag"),
-        ws,
-        delimited(
-            tag("["),
-            separated_list(tag(","), terminated(parse_bag_entry, ws)),
-            tag("]"),
-        ),
-    ))(input)?;
+pub fn parse_bag<'a>(input: &'a str) -> ParseResult<Bag> {
+    let (input, (_, _, items)) = context(
+        "bag",
+        tuple((
+            tag("bag"),
+            ws,
+            delimited(
+                tag("["),
+                separated_list(tag(","), terminated(parse_bag_entry, ws)),
+                tag("]"),
+            ),
+        )),
+    )(input)?;
 
     Ok((input, Bag { items }))
 }
 
-pub fn parse_identifier(input: &str) -> IResult<&str, &str> {
+pub fn parse_identifier(input: &str) -> ParseResult<&str> {
     let first_letter = alpha1;
     let rest = take_while(|b| is_alphanumeric(b as u8) || b == '_');
     let identifier = preceded(first_letter, rest);
     recognize(identifier)(input)
 }
 
-pub fn parse_pattern(input: &str) -> IResult<&str, Pattern> {
+pub fn parse_pattern(input: &str) -> ParseResult<Pattern> {
     let (input, expressions) = delimited(
         char('{'),
         many0(delimited(multispace0, parse_expression, multispace0)),
@@ -63,24 +77,27 @@ pub fn parse_pattern(input: &str) -> IResult<&str, Pattern> {
     Ok((input, Pattern { parts: expressions }))
 }
 
-pub fn parse_table_dict_header(input: &str) -> IResult<&str, Vec<String>> {
-    let (input, columns) = delimited(
-        char('['),
-        separated_list(
-            tag(","),
-            delimited(
-                multispace0,
-                preceded(char('.'), take_while1(|c| is_alphabetic(c as u8))),
-                multispace0,
+pub fn parse_table_dict_header(input: &str) -> ParseResult<Vec<String>> {
+    let (input, columns) = context(
+        "table dict header",
+        delimited(
+            char('['),
+            separated_list(
+                tag(","),
+                delimited(
+                    multispace0,
+                    preceded(char('.'), take_while1(|c| is_alphabetic(c as u8))),
+                    multispace0,
+                ),
             ),
+            char(']'),
         ),
-        char(']'),
     )(input)?;
 
     Ok((input, columns.into_iter().map(String::from).collect()))
 }
 
-pub fn parse_table_dict_entry(input: &str) -> IResult<&str, TableDictEntry> {
+pub fn parse_table_dict_entry(input: &str) -> ParseResult<TableDictEntry> {
     let (input, placeholder) = opt(char('_'))(input)?;
 
     if placeholder.is_some() {
@@ -102,7 +119,7 @@ pub fn parse_table_dict_entry(input: &str) -> IResult<&str, TableDictEntry> {
     ))
 }
 
-pub fn parse_table_dict_row(input: &str) -> IResult<&str, TableDictRow> {
+pub fn parse_table_dict_row(input: &str) -> ParseResult<TableDictRow> {
     let (input, weight) = opt(float)(input)?;
     let (input, _) = ws(input)?;
 
@@ -110,7 +127,11 @@ pub fn parse_table_dict_row(input: &str) -> IResult<&str, TableDictRow> {
         char('['),
         separated_list(
             tag(","),
-            delimited(multispace0, parse_table_dict_entry, multispace0),
+            delimited(
+                multispace0,
+                context("table dict entry", parse_table_dict_entry),
+                multispace0,
+            ),
         ),
         char(']'),
     )(input)?;
@@ -118,22 +139,25 @@ pub fn parse_table_dict_row(input: &str) -> IResult<&str, TableDictRow> {
     Ok((input, TableDictRow { items, weight }))
 }
 
-pub fn parse_table_dict(input: &str) -> IResult<&str, TableDict> {
-    let (input, (columns, rows)) = preceded(
-        tag("table_dict"),
+pub fn parse_table_dict(input: &str) -> ParseResult<TableDict> {
+    let (input, (columns, rows)) = context(
+        "table dict",
         preceded(
-            ws,
-            delimited(
-                char('['),
+            tag("table_dict"),
+            preceded(
+                ws,
                 delimited(
-                    ws,
-                    tuple((
-                        terminated(parse_table_dict_header, tuple((ws, char(','), ws))),
-                        separated_list(char(','), parse_table_dict_row),
-                    )),
-                    ws,
+                    char('['),
+                    delimited(
+                        ws,
+                        tuple((
+                            terminated(parse_table_dict_header, tuple((ws, char(','), ws))),
+                            separated_list(char(','), parse_table_dict_row),
+                        )),
+                        ws,
+                    ),
+                    char(']'),
                 ),
-                char(']'),
             ),
         ),
     )(input)?;
@@ -141,7 +165,7 @@ pub fn parse_table_dict(input: &str) -> IResult<&str, TableDict> {
     Ok((input, TableDict { columns, rows }))
 }
 
-pub fn parse_property_access(input: &str) -> IResult<&str, Expression> {
+pub fn parse_property_access(input: &str) -> ParseResult<Expression> {
     // TODO: Support other expressions.
     let (input, identifier) = parse_identifier(input)?;
     let expression = Expression::VariableE(String::from(identifier));
@@ -154,22 +178,27 @@ pub fn parse_property_access(input: &str) -> IResult<&str, Expression> {
     ))
 }
 
-pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
-    alt((
-        map(parse_pattern, Expression::PatternE),
-        map(parse_string_literal, |s| {
-            Expression::LiteralE(String::from(s))
-        }),
-        map(parse_table_dict, Expression::TableDictE),
-        map(parse_bag, Expression::BagE),
-        parse_property_access,
-        map(parse_identifier, |s| Expression::VariableE(String::from(s))),
-    ))(input)
+pub fn parse_expression(input: &str) -> ParseResult<Expression> {
+    context(
+        "expression",
+        alt((
+            map(parse_pattern, Expression::PatternE),
+            map(parse_string_literal, |s| {
+                Expression::LiteralE(String::from(s))
+            }),
+            map(parse_table_dict, Expression::TableDictE),
+            map(parse_bag, Expression::BagE),
+            parse_property_access,
+            map(parse_identifier, |s| Expression::VariableE(String::from(s))),
+        )),
+    )(input)
 }
 
-pub fn parse_assignment(input: &str) -> IResult<&str, Assignment> {
-    let (input, (name, _, _, _, value)) =
-        tuple((parse_identifier, ws, tag("="), ws, parse_expression))(input)?;
+pub fn parse_assignment(input: &str) -> ParseResult<Assignment> {
+    let (input, (name, _, _, _, value)) = context(
+        "assignment",
+        tuple((parse_identifier, ws, tag("="), ws, parse_expression)),
+    )(input)?;
 
     Ok((
         input,
@@ -180,20 +209,23 @@ pub fn parse_assignment(input: &str) -> IResult<&str, Assignment> {
     ))
 }
 
-pub fn parse_assignment_statement(input: &str) -> IResult<&str, Statement> {
+pub fn parse_assignment_statement(input: &str) -> ParseResult<Statement> {
     map(parse_assignment, Statement::AssignmentS)(input)
 }
 
-pub fn parse_statement(input: &str) -> IResult<&str, Statement> {
-    let (input, _) = ws(input)?;
-    // let (input, statement) = alt((parse_assignment_statement,))(input)?;
-    let (input, statement) = parse_assignment_statement(input)?;
-    let (input, _) = tuple((ws, char(';')))(input)?;
+pub fn parse_statement(input: &str) -> ParseResult<Statement> {
+    let (input, (_, statement, _, _)) = context(
+        "statement",
+        tuple((ws, parse_assignment_statement, ws, char(';'))),
+    )(input)?;
     Ok((input, statement))
 }
 
-pub fn parse_program(input: &str) -> IResult<&str, Vec<Statement>> {
-    let (input, statements) = all_consuming(terminated(many1(parse_statement), ws))(input)?;
+pub fn parse_program(input: &str) -> ParseResult<Vec<Statement>> {
+    let (input, statements) = context(
+        "program",
+        all_consuming(terminated(many1(parse_statement), ws)),
+    )(input)?;
     Ok((input, statements))
 }
 
