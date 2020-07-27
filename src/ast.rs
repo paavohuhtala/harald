@@ -1,4 +1,4 @@
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct BagEntry {
     pub weight: Option<f32>,
     pub value: Box<Expression>,
@@ -18,7 +18,7 @@ impl BagEntry {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Bag {
     pub items: Vec<BagEntry>,
 }
@@ -34,12 +34,12 @@ pub enum Statement {
     AssignmentS(Assignment),
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Pattern {
     pub parts: Vec<Expression>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
     LiteralE(String),
     VariableE(String),
@@ -51,17 +51,17 @@ pub enum Expression {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TableDictEntry {
-    Literal(String),
-    Append(String),
+    Literal(Box<Expression>),
+    Append(Box<Expression>),
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TableDictRow {
     pub weight: Option<f32>,
     pub items: Vec<TableDictEntry>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TableDict {
     pub columns: Vec<String>,
     pub rows: Vec<TableDictRow>,

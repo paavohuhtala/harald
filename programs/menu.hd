@@ -1,0 +1,53 @@
+baseIngredient = table_dict [
+    [.base, .partitive],
+    ["kinkku", +"a"],
+    ["kala", +"a"],
+    ["kana", +"a"],
+    ["lohi", "lohta"],
+    ["siika", +"a"],
+    ["silakka", +"a"],
+    ["silli", +"ä"],
+    ["särki", "särkeä"],
+    ["turska", +"a"],
+    ["kolja", +"a"],
+    ["hummeri", +"a"],
+    ["kaviaari", +"a"],
+    ["mäti", +"ä"],
+    ["lahna", +"a"],
+    ["tofu", +"a"],
+    ["seitan", +"ia"],
+    ["härkis", +"tä"],
+    ["poro", +"a"],
+    ["hirvi", "hirveä"],
+    ["lammas", +"ta"],
+    ["kauris", +"ta"],
+    ["rapu", +"a"],
+    ["härkä", +"ä"],
+    ["juusto", +"a"],
+    ["kalkkuna", +"a"],
+    ["punajuuri", "punajuurta"]
+];
+
+ingredientModifier = bag [
+    "suola",
+    "graavi",
+    "savu",
+    "kylmäsavu",
+    "chili",
+    "pippuri",
+    "tilli",
+    "yrtti",
+    "terva",
+    "sinappi",
+    "sahti"
+];
+
+mainIngredient = table_dict [
+    [.base, .partitive],
+    [
+        { ingredientModifier baseIngredient.base },
+        { ingredientModifier baseIngredient.partitive }
+    ]
+];
+
+result = { "base: " mainIngredient.base ", partitive: " mainIngredient.partitive };

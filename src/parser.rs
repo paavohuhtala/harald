@@ -84,14 +84,13 @@ pub fn parse_table_dict_entry(input: &str) -> IResult<&str, TableDictEntry> {
     let (input, prefix): (&str, Option<char>) = opt(char('+'))(input)?;
     let (input, _) = ws(input)?;
     let is_append = prefix.is_some();
-    let (input, word) = parse_string_literal(input)?;
-    let word = String::from(word);
+    let (input, expression) = parse_expression(input)?;
 
     Ok((
         input,
         match is_append {
-            true => TableDictEntry::Append(word),
-            false => TableDictEntry::Literal(word),
+            true => TableDictEntry::Append(Box::new(expression)),
+            false => TableDictEntry::Literal(Box::new(expression)),
         },
     ))
 }
@@ -328,22 +327,28 @@ mod tests {
 
     #[test]
     fn test_parse_table_dict_entry() {
-        use super::{parse_table_dict_entry, TableDictEntry};
+        use super::{parse_table_dict_entry, Expression, TableDictEntry};
 
         assert_eq!(
             parse_table_dict_entry(r#""Harald""#),
-            Ok(("", TableDictEntry::Literal(String::from("Harald"))))
+            Ok((
+                "",
+                TableDictEntry::Literal(Box::new(Expression::LiteralE(String::from("Harald"))))
+            ))
         );
 
         assert_eq!(
             parse_table_dict_entry(r#"+"in""#),
-            Ok(("", TableDictEntry::Append(String::from("in"))))
+            Ok((
+                "",
+                TableDictEntry::Append(Box::new(Expression::LiteralE(String::from("in"))))
+            ))
         );
     }
 
     #[test]
     fn test_parse_table_dict_row() {
-        use super::{parse_table_dict_row, TableDictEntry, TableDictRow};
+        use super::{parse_table_dict_row, Expression, TableDictEntry, TableDictRow};
 
         assert_eq!(
             parse_table_dict_row(r#"["unicorn", "unicorns"]"#),
@@ -352,8 +357,12 @@ mod tests {
                 TableDictRow {
                     weight: None,
                     items: vec![
-                        TableDictEntry::Literal(String::from("unicorn")),
-                        TableDictEntry::Literal(String::from("unicorns"))
+                        TableDictEntry::Literal(Box::new(Expression::LiteralE(String::from(
+                            "unicorn"
+                        )))),
+                        TableDictEntry::Literal(Box::new(Expression::LiteralE(String::from(
+                            "unicorns"
+                        ))))
                     ]
                 }
             ))
@@ -366,8 +375,10 @@ mod tests {
                 TableDictRow {
                     weight: None,
                     items: vec![
-                        TableDictEntry::Literal(String::from("unicorn")),
-                        TableDictEntry::Append(String::from("s"))
+                        TableDictEntry::Literal(Box::new(Expression::LiteralE(String::from(
+                            "unicorn"
+                        )))),
+                        TableDictEntry::Append(Box::new(Expression::LiteralE(String::from("s"))))
                     ]
                 }
             ))
@@ -380,8 +391,10 @@ mod tests {
                 TableDictRow {
                     weight: None,
                     items: vec![
-                        TableDictEntry::Literal(String::from("unicorn")),
-                        TableDictEntry::Append(String::from("s"))
+                        TableDictEntry::Literal(Box::new(Expression::LiteralE(String::from(
+                            "unicorn"
+                        )))),
+                        TableDictEntry::Append(Box::new(Expression::LiteralE(String::from("s"))))
                     ]
                 }
             ))
@@ -390,7 +403,7 @@ mod tests {
 
     #[test]
     fn test_parse_table_dict() {
-        use super::{parse_table_dict, TableDict, TableDictEntry, TableDictRow};
+        use super::{parse_table_dict, Expression, TableDict, TableDictEntry, TableDictRow};
 
         let table_dict = r#"table_dict [
             [.base, .plural],
@@ -408,15 +421,23 @@ mod tests {
                         TableDictRow {
                             weight: None,
                             items: vec![
-                                TableDictEntry::Literal(String::from("unicorn")),
-                                TableDictEntry::Literal(String::from("unicorns"))
+                                TableDictEntry::Literal(Box::new(Expression::LiteralE(
+                                    String::from("unicorn")
+                                ))),
+                                TableDictEntry::Literal(Box::new(Expression::LiteralE(
+                                    String::from("unicorns")
+                                )))
                             ]
                         },
                         TableDictRow {
                             weight: None,
                             items: vec![
-                                TableDictEntry::Literal(String::from("kitten")),
-                                TableDictEntry::Append(String::from("s"))
+                                TableDictEntry::Literal(Box::new(Expression::LiteralE(
+                                    String::from("kitten")
+                                ))),
+                                TableDictEntry::Append(Box::new(Expression::LiteralE(
+                                    String::from("s")
+                                )))
                             ]
                         }
                     ]

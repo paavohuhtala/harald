@@ -55,18 +55,18 @@ impl<'a> Display for Value<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Pattern {
     parts: Vec<Expression>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TableDict {
     name_hint: Option<NameHint>,
     bags: HashMap<String, Bag>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bag {
     id: usize,
     name_hint: Option<NameHint>,
@@ -74,7 +74,7 @@ pub struct Bag {
     distribution: WeightedIndex<f32>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     LiteralE(String),
     VariableE(String),
@@ -228,19 +228,24 @@ impl CompiledScript {
                     let base_item = row.items[0].clone();
 
                     let base_item = match base_item {
-                        ast::TableDictEntry::Literal(s) => s,
+                        ast::TableDictEntry::Literal(s) => self.transform_expression(*s, name_hint),
                         ast::TableDictEntry::Append(_) => {
                             return Err(CompilerError::NonLiteralTableDictFirstPattern(base_item));
                         }
-                    };
+                    }?;
 
                     for (column_number, item) in row.items.into_iter().enumerate() {
                         let item_text = match item {
-                            ast::TableDictEntry::Literal(s) => s,
-                            ast::TableDictEntry::Append(mut s) => {
-                                // Mutate the string to avoid a new allocation
-                                s.insert_str(0, &base_item);
-                                s
+                            ast::TableDictEntry::Literal(expr) => {
+                                self.transform_expression(*expr, name_hint)?
+                            }
+                            ast::TableDictEntry::Append(expr) => {
+                                let expr = self.transform_expression(*expr, name_hint)?;
+
+                                Expression::PatternE(Pattern {
+                                    // TODO: Avoid this clone?
+                                    parts: vec![base_item.clone(), expr],
+                                })
                             }
                         };
 
@@ -250,15 +255,12 @@ impl CompiledScript {
 
                 let mut bags = HashMap::new();
 
-                for (column_items, column) in items_per_column.into_iter().zip(table_dict.columns) {
+                for (items, column) in items_per_column.into_iter().zip(table_dict.columns) {
                     self.id_counter += 1;
                     let id = self.id_counter;
 
                     // TODO: implement weights
-                    let distribution = WeightedIndex::new(vec![1.0; column_items.len()]).unwrap();
-
-                    // TODO: implement arbitrary expressions?
-                    let items = column_items.into_iter().map(Expression::LiteralE).collect();
+                    let distribution = WeightedIndex::new(vec![1.0; items.len()]).unwrap();
 
                     let bag = Bag {
                         id,
