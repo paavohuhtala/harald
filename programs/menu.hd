@@ -1,3 +1,119 @@
+firstName = table_dict [
+    [.base, .possessive],
+    ["Harald", +"in"],
+    ["Helga", +"n"],
+    ["Sven", +"in"],
+    ["Asterix", +"in"],
+    ["Obelix", +"in"],
+    ["Conan", +"in"],
+    ["Thor", +"in"],
+    ["Björn", +"in"],
+    ["Sigurd", +"in"],
+    ["Ragnar", +"in"],
+    ["Loki", +"n"],
+    ["Fredrik", +"in"],
+    ["Torbjörn", +"in"],
+    ["Väinämöinen", "Väinämöisen"],
+    ["Mielikki", "Mielikin"],
+    ["Ilmatar", "Ilmattaren"],
+    ["Ilmarinen", "Ilmarisen"],
+    ["Joukahainen", "Joukahaisen"],
+    ["Freija", +"n"],
+    ["Odin", +"in"],
+    ["Arvid", +"in"],
+    ["Peppi", "Pepin"],
+    ["Eemil", +"in"],
+    ["Eemeli", +"n"]
+];
+
+title = bag [
+    "tietäjä",
+    "heimopäällikkö",
+    "viikinkipäällikkö",
+    "shamaani",
+    "trubaduuri",
+    "kuningas",
+    "kuningatar",
+    "ylipappi",
+    "keisari",
+    "keisarinna",
+    "piispa",
+    "kauppias",
+    "tutkimusmatkailija",
+    "kapteeni",
+    "laivuri",
+    "perämies",
+    "teurastaja"
+];
+
+maybeTitle = bag ["", { title " " }];
+
+fullName = bag [
+    firstName.base,
+    { maybeTitle firstName.base " " firstName.possessive bag ["poika", "tytär"] }
+];
+
+fullNamePossessive = bag [
+    firstName.possessive,
+    { title " " firstName.possessive },
+    { maybeTitle firstName.base " " firstName.possessive bag ["pojan", "tyttären"] }
+];
+
+foodSource = table_dict [
+    [.base, .possessive],
+    [fullName, fullNamePossessive],
+    ["Tuonela", +"n"],
+    ["Aifur", +"in"],
+    ["Heimdal", +"in"],
+    ["Jäämeri", "Jäämeren"],
+    ["Baltia", +"n"],
+    ["Pohjolan emäntä", "Pohjolan emännän"],
+    ["Athosvuori", "Athosvuoren"],
+    ["Valkyyri", "Valkyyrioiden"],
+    ["Iona", +"n"],
+    ["Iirien neito", "Iirien neidon"],
+    ["Vuohipaimen", +"en"],
+    ["Ryytimaa", +"n"],
+    ["Ruurik", +"in"],
+    ["Kangasmetsä", +"n"],
+    ["Kallioranta", "Kalliorannan"],
+    ["Lofootit", "Lofoottien"],
+    ["Uusi maailma", "Uuden maailman"],
+    ["Kalastaja", +"n"],
+    ["Kapteeni", +"n"],
+    ["Shamaani", +"n"],
+    ["Teurastaja", +"n"]
+];
+
+marinade = bag [
+  "olut",
+  "sahti",
+  "sima",
+  "viini"
+];
+
+maybeMarinade = bag ["", marinade];
+
+adjective = table_dict [
+    [.singular, .plural, .partitive, .pluralPartitive],
+    ["valtava", "valtavat", "valtavaa", "valtavia"],
+    ["mahtava", "mahtavat", "mahtavaa", "mahtavia"],
+    ["reilu", "reilut", "reilua", "reiluja"],
+    ["tuhti", "tuhdit", "tuhtia", "tuhteja"],
+    ["juhlallinen", "juhlalliset", "juhlallista", "juhlallisia"],
+    ["parempi", "paremmat", "parempaa", "parempia"],
+    ["herkullinen", "herkulliset", "herkullista", "herkullisia"],
+    ["pikkelöity", "pikkelöidyt", "pikkelöityä", "pikkelöityjä"],
+    ["friteerattu", "friteeratut", "friteerattua", "friteerattuja"],
+    ["liekitetty", "liekitetyt", "liekitettyä", "liekitettyjä"],
+    ["ihanampi", "ihanammat", "ihanampaa", "ihanampia"],
+    [{maybeMarinade "marinoitu"}, {maybeMarinade "marinoidut"}, {maybeMarinade "marinoitua"}, {maybeMarinade "marinoituja" }],
+    ["kuivattu", "kuivatut", "kuivattua", "kuivattuja"],
+    ["karamellisoitu", "karamellisoidut", "karamellisoitua", "karamellisoituja"],
+    ["ylikypsä", "ylikypsät", "ylikypsää", "ylikypsiä"],
+    ["kuorrutettu", "kuorrutetut", "kuorrutettua", "kuorrutettuja"]
+];
+
 baseIngredient = table_dict [
     [.base, .partitive],
     ["kinkku", +"a"],
@@ -29,6 +145,7 @@ baseIngredient = table_dict [
 ];
 
 ingredientModifier = bag [
+    5 "",
     "suola",
     "graavi",
     "savu",
@@ -50,4 +167,139 @@ mainIngredient = table_dict [
     ]
 ];
 
-result = { "base: " mainIngredient.base ", partitive: " mainIngredient.partitive };
+maybeMainIngredient = bag ["", mainIngredient.base];
+
+mealPart = table_dict [
+    [.prefix, .base, .partitive, .plural, .pluralPartitive],
+    [_, "rosvopaisti", "rosvopaistia", _, _],
+    [_, "leike", "leikettä", "leikkeet", "leikkeitä"],
+    [_, "perunamuusi", "perunamuusia", _, _],
+    [_, "murskattu peruna", "murskattua perunaa", "murskatut perunat", "murskattuja perunoita"],
+    [_, "viiriäinen", "viiriäistä", "viiriäisenkoivet", "viiriäisenkoipia"],
+    [_, "leipäjuusto", "leipäjuustoa", _, _],
+    [_, "peruna", "perunaa", "perunat", "perunoita"],
+    [_, "lanttu", "lanttua", "lantut", "lanttuja"],
+    [_, "palsternakka", "palsternakkaa", "palsternakat", "palsternakkoja"],
+    [_, "lehtikaali", "lehtikaalta", _, _],
+    [_, "lammassärä", "lammassärää", _, _],
+    [_, "ankankoipi", "ankankoipea", "ankankoivet", "ankankoipia"],
+    [_, _, _, "tikkuperunat", "tikkuperunoita"],
+    [_, _, _, "kilpiperunat", "kilpiperunoita"],
+    [_, _, _, "lohkoperunat", "lohkoperunoita"],
+    [_, _, _,"ravunpyrstöt", "ravunpyrstöjä"],
+    [_, _, _, "muikut", "muikkuja"],
+    [_, mainIngredient.base, mainIngredient.partitive, _, _],
+    [mainIngredient.base, +"kiusaus", +"kiusausta", _, _],
+    [mainIngredient.base, +"laatikko", +"laatikkoa", _, _],
+    [maybeMainIngredient, +"makkara", +"makkaraa", +"makkarat", +"makkaroita"],
+    [maybeMainIngredient, +"hampurilainen", +"hampurilaista", _, _],
+    [mainIngredient.base, +"keitto", +"keittoa", _, _],
+    [mainIngredient.base, +"pihvi", +"pihviä", +"pihvit", +"pihvejä"],
+    [mainIngredient.base, +"kakku", +"kakkua", +"kakut", +"kakkuja"],
+    [maybeMainIngredient, +"salaatti", +"salaattia", _, _],
+    [mainIngredient.base, +"rulla", +"rullaa", _, _],
+    [maybeMainIngredient, +"paisti", +"paistia", _, _],
+    [maybeMainIngredient, +"kebab", +"kebabia", _, _],
+    [mainIngredient.base, +"muhennos", +"muhennosta", _, _],
+    [maybeMainIngredient, _, _, +"nakit", +"nakkeja"],
+    [bag ["liha", mainIngredient.base], "pulla", "pullaa", "pullat", "pullia"],
+    [bag ["juures", "bataatti", "maalais", "ristikko"], _, _, +"ranskalaiset", +"ranskalaisia"]
+];
+
+sauceModifier = table_dict [
+    [.base, .partitive, .adessive],
+    ["juustoinen", "juustoista", "juustoisella"],
+    ["tulinen", "tulista", "tulisella"],
+    ["pippurinen", "pippurista", "pippurisella"],
+    ["kermainen", "kermaista", "kermaisella"],
+    ["makea", "makeaa", "makealla"],
+    ["suolainen", "suolaista", "suolaisella"],
+    ["pikantti", "pikanttia", "pikantilla"],
+    ["terästetty", "terästettyä", "terätetyllä"],
+    ["kesäinen", "kesäistä", "kesäisellä"],
+    ["jouluinen", "jouluista", "jouluisella"]
+];
+
+baseSauce = table_dict [
+    [.base, .partitive, .adessive],
+    ["kasti", "kastia", "kastilla"],
+    ["kastike", "kastiketta", "kastikkeella"],
+    ["liemi", "lientä", "liemellä"],
+    ["soossi", "soossia", "soossilla"],
+    ["mousse", "moussea", "moussella"],
+    ["pyree", "pyreetä", "pyreellä"],
+    ["vaahto", "vaahtoa", "vaahdolla"],
+    ["dippi", "dippiä", "dipillä"],
+    ["hilloke", "hilloketta", "hillokkeella"]
+];
+
+sauceIngredient = bag [
+    mainIngredient.base,
+    bag [
+        "tomaatti",
+        "vuohenjuusto",
+        "palsternakka",
+        "sipuli",
+        "valkosipuli",
+        "lakka",
+        "puolukka",
+        "mustikka",
+        "oravanmarja",
+        "kuusenkerkkä",
+        "katajanmarja",
+        "pihlajanmarja",
+        "olut",
+        "viini",
+        "herukka",
+        "vaahterasiirappi",
+        "rosmariini",
+        "sinappi",
+        "voi",
+        "herkkusieni",
+        "tatti",
+        "korvasieni"
+    ]
+];
+
+maybeFoodSourcePossessive = bag ["", { foodSource.possessive " " }];
+maybeSauceModifier = bag ["", { sauceModifier.base " " }];
+maybeSauceModifierPartitive = bag ["", { sauceModifier.partitive " " }];
+maybeSauceModifierAdessive = bag ["", { sauceModifier.adessive " " }];
+maybeIngredientModifier = bag ["", ingredientModifier];
+maybeSauceIngredient = bag ["", sauceIngredient];
+
+sauce = bag [
+    { " ja " maybeFoodSourcePossessive maybeSauceModifierPartitive maybeIngredientModifier maybeSauceIngredient baseSauce.partitive },
+    { " ja " maybeFoodSourcePossessive maybeSauceModifier maybeIngredientModifier maybeSauceIngredient baseSauce.base },
+    { " " maybeFoodSourcePossessive maybeSauceModifierAdessive maybeIngredientModifier maybeSauceIngredient baseSauce.adessive }
+];
+
+cookingMethod = table_dict [
+    [.singular, .plural, .partitive, .pluralPartitive],
+    ["paistettu", "paistetut", "paistettua", "paistettuja"],
+    ["nuotiolla paistettu", "nuotiolla paistetut", "nuotiolla paistettua", "nuotiolla paistettuja"],
+    ["keitetty", "keitetyt", "keitettyä", "keitettyjä"],
+    ["suolattu", "suolatut", "suolattua", "suolattuja"],
+    ["höyrytetty", "höyrytetyt", "höyrytettyä", "höyrytettyjä"],
+    ["hiillostettu", "hiillostetut", "hiillostettua", "hiillostettuja"],
+    ["savustettu", "savustetut", "savustettua", "savustettuja"],
+    ["revitty", "revityt", "revittyä", "revittyjä"],
+    ["pariloitu", "pariloidut", "pariloitua", "pariloituja"],
+    ["paahdettu", "paahdetut", "paahdettua", "paahdettuja"]
+];
+
+meal = bag [
+    { bag["", { cookingMethod.singular " "} ] bag["", { adjective.singular " " }] mealPart.base },
+    { bag["", { cookingMethod.plural " "} ] bag["", { adjective.plural " " }] mealPart.plural },
+    { bag["", { cookingMethod.partitive " "} ] bag["", { adjective.partitive " " }] mealPart.partitive },
+    { bag["", { cookingMethod.pluralPartitive " "} ] bag["", { adjective.pluralPartitive " " }] mealPart.pluralPartitive }
+];
+
+pattern = bag [
+    { maybeFoodSourcePossessive meal " sekä " maybeFoodSourcePossessive meal },
+    { fullNamePossessive " " meal },
+    { meal " " foodSource.possessive " " bag ["tapaan", "tyyliin", "hovista", "nuotiolta", "leiristä"] },
+    { meal " á la " foodSource.base }
+];
+
+result = { pattern };
