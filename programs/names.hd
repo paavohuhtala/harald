@@ -1,4 +1,4 @@
-first_name = table_dict [
+first_name = table [
     [.base, .possessive],
     ["Harald", +"in"],
     ["Helga", +"n"],

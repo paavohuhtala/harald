@@ -10,7 +10,7 @@ use thiserror::Error;
 pub enum Value<'a> {
   StringV(Cow<'a, str>),
   BagV(&'a Bag),
-  TableDictV(&'a TableDict),
+  TableV(&'a Table),
 }
 
 impl<'a> Value<'a> {
@@ -18,7 +18,7 @@ impl<'a> Value<'a> {
     match self {
       Value::StringV(_) => "string",
       Value::BagV(_) => "bag",
-      Value::TableDictV(_) => "table_dict",
+      Value::TableV(_) => "table",
     }
   }
 
@@ -44,11 +44,11 @@ impl<'a> Display for Value<'a> {
           write!(f, "bag (anonymous)")
         }
       }
-      Value::TableDictV(table_dict) => {
-        if let Some(name_hint) = &table_dict.name_hint {
-          write!(f, "table_dict ({:?})", name_hint)
+      Value::TableV(table) => {
+        if let Some(name_hint) = &table.name_hint {
+          write!(f, "table ({:?})", name_hint)
         } else {
-          write!(f, "table_dict (anonymous)")
+          write!(f, "table (anonymous)")
         }
       }
     }
@@ -61,7 +61,7 @@ pub struct Pattern {
 }
 
 #[derive(Debug, Clone)]
-pub struct TableDict {
+pub struct Table {
   name_hint: Option<NameHint>,
   bags: HashMap<String, Bag>,
 }
@@ -80,7 +80,7 @@ pub enum Expression {
   VariableE(String),
   PatternE(Pattern),
   BagE(Bag),
-  TableDictE(TableDict),
+  TableE(Table),
   PropertyAccessE(Box<Expression>, String),
 }
 
@@ -102,27 +102,27 @@ pub enum InterpreterError {
   #[error("Object of type {was} has no property \"{key}\".")]
   CannotBeIndexed { was: &'static str, key: String },
 
-  #[error("table_dict with columns {columns:?} has no key \"{key}\"")]
-  TableDictMissingProperty { columns: Vec<String>, key: String },
+  #[error("table with columns {columns:?} has no key \"{key}\"")]
+  TableMissingProperty { columns: Vec<String>, key: String },
 }
 
 #[derive(Error, Debug)]
 pub enum CompilerError {
-  #[error("A table_dict must have at least one column")]
-  EmptyTableDict,
+  #[error("A table must have at least one column")]
+  EmptyTable,
 
   #[error("A bag must have at least one item")]
   EmptyBag,
 
-  #[error("Error on table_dict row {row_number}: expected {} columns ({expected_columns:?}), found {} values ({values:?})", .expected_columns.len(), values.len())]
-  InvalidTableDictRow {
+  #[error("Error on table row {row_number}: expected {} columns ({expected_columns:?}), found {} values ({values:?})", .expected_columns.len(), values.len())]
+  InvalidTableRow {
     expected_columns: Vec<String>,
-    values: Vec<ast::TableDictEntry>,
+    values: Vec<ast::TableEntry>,
     row_number: usize,
   },
 
-  #[error("The fist item in a table_dict must be a literal (was {0:?}).")]
-  NonLiteralTableDictFirstPattern(ast::TableDictEntry),
+  #[error("The fist item in a table must be a literal (was {0:?}).")]
+  NonLiteralTableFirstPattern(ast::TableEntry),
 }
 
 #[derive(Error, Debug)]
@@ -209,18 +209,18 @@ impl CompiledScript {
 
         Ok(Expression::BagE(bag))
       }
-      ast::Expression::TableDictE(table_dict) => {
-        if table_dict.columns.len() < 1 {
-          return Err(CompilerError::EmptyTableDict);
+      ast::Expression::TableE(table) => {
+        if table.columns.len() < 1 {
+          return Err(CompilerError::EmptyTable);
         }
 
-        let mut items_per_column = vec![Vec::new(); table_dict.columns.len()];
+        let mut items_per_column = vec![Vec::new(); table.columns.len()];
 
-        for (row_number, row) in table_dict.rows.into_iter().enumerate() {
-          if row.items.len() != table_dict.columns.len() {
-            return Err(CompilerError::InvalidTableDictRow {
+        for (row_number, row) in table.rows.into_iter().enumerate() {
+          if row.items.len() != table.columns.len() {
+            return Err(CompilerError::InvalidTableRow {
               row_number,
-              expected_columns: table_dict.columns.clone(),
+              expected_columns: table.columns.clone(),
               values: row.items.clone(),
             });
           }
@@ -228,17 +228,15 @@ impl CompiledScript {
           let base_item = row.items[0].clone();
 
           let base_item = match base_item {
-            ast::TableDictEntry::Literal(s) => self.transform_expression(*s, name_hint)?,
+            ast::TableEntry::Literal(s) => self.transform_expression(*s, name_hint)?,
             _ => Expression::LiteralE(String::new()),
           };
 
           for (column_number, item) in row.items.into_iter().enumerate() {
             let maybe_expr = match item {
-              ast::TableDictEntry::Hole => None,
-              ast::TableDictEntry::Literal(expr) => {
-                Some(self.transform_expression(*expr, name_hint)?)
-              }
-              ast::TableDictEntry::Append(expr) => {
+              ast::TableEntry::Hole => None,
+              ast::TableEntry::Literal(expr) => Some(self.transform_expression(*expr, name_hint)?),
+              ast::TableEntry::Append(expr) => {
                 let expr = self.transform_expression(*expr, name_hint)?;
 
                 Some(Expression::PatternE(Pattern {
@@ -259,7 +257,7 @@ impl CompiledScript {
 
         let mut bags = HashMap::new();
 
-        for (items, column) in items_per_column.into_iter().zip(table_dict.columns) {
+        for (items, column) in items_per_column.into_iter().zip(table.columns) {
           self.id_counter += 1;
           let id = self.id_counter;
 
@@ -276,7 +274,7 @@ impl CompiledScript {
           bags.insert(column, bag);
         }
 
-        Ok(Expression::TableDictE(TableDict {
+        Ok(Expression::TableE(Table {
           name_hint: name_hint.clone(),
           bags,
         }))
@@ -350,17 +348,17 @@ impl CompiledScript {
         Ok(Value::StringV(Cow::from(combined)))
       }
       Expression::BagE(bag) => Ok(Value::BagV(bag)),
-      Expression::TableDictE(table_dict) => Ok(Value::TableDictV(table_dict)),
+      Expression::TableE(table) => Ok(Value::TableV(table)),
       Expression::PropertyAccessE(expression, property) => {
         let value = self.eval_expression(expression)?;
 
         match value {
-          Value::TableDictV(table_dict) => {
-            let bag = table_dict.bags.get(property);
+          Value::TableV(table) => {
+            let bag = table.bags.get(property);
 
             match bag {
-              None => Err(InterpreterError::TableDictMissingProperty {
-                columns: table_dict.bags.keys().map(String::from).collect(),
+              None => Err(InterpreterError::TableMissingProperty {
+                columns: table.bags.keys().map(String::from).collect(),
                 key: property.clone(),
               }),
               Some(bag) => Ok(Value::BagV(bag)),

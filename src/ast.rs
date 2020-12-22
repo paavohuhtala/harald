@@ -46,24 +46,24 @@ pub enum Expression {
   BagE(Bag),
   PatternE(Pattern),
   PropertyAccessE(Box<Expression>, String),
-  TableDictE(TableDict),
+  TableE(Table),
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum TableDictEntry {
+pub enum TableEntry {
   Hole,
   Literal(Box<Expression>),
   Append(Box<Expression>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct TableDictRow {
+pub struct TableRow {
   pub weight: Option<f32>,
-  pub items: Vec<TableDictEntry>,
+  pub items: Vec<TableEntry>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct TableDict {
+pub struct Table {
   pub columns: Vec<String>,
-  pub rows: Vec<TableDictRow>,
+  pub rows: Vec<TableRow>,
 }

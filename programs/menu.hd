@@ -1,4 +1,4 @@
-firstName = table_dict [
+firstName = table [
     [.base, .possessive],
     ["Harald", +"in"],
     ["Helga", +"n"],
@@ -59,7 +59,7 @@ fullNamePossessive = bag [
     { maybeTitle firstName.base " " firstName.possessive bag ["pojan", "tyttären"] }
 ];
 
-foodSource = table_dict [
+foodSource = table [
     [.base, .possessive],
     [fullName, fullNamePossessive],
     ["Tuonela", +"n"],
@@ -94,7 +94,7 @@ marinade = bag [
 
 maybeMarinade = bag ["", marinade];
 
-adjective = table_dict [
+adjective = table [
     [.singular, .plural, .partitive, .pluralPartitive],
     ["valtava", "valtavat", "valtavaa", "valtavia"],
     ["mahtava", "mahtavat", "mahtavaa", "mahtavia"],
@@ -114,7 +114,7 @@ adjective = table_dict [
     ["kuorrutettu", "kuorrutetut", "kuorrutettua", "kuorrutettuja"]
 ];
 
-baseIngredient = table_dict [
+baseIngredient = table [
     [.base, .partitive],
     ["kinkku", +"a"],
     ["kala", +"a"],
@@ -159,7 +159,7 @@ ingredientModifier = bag [
     "sahti"
 ];
 
-mainIngredient = table_dict [
+mainIngredient = table [
     [.base, .partitive],
     [
         { ingredientModifier baseIngredient.base },
@@ -169,7 +169,7 @@ mainIngredient = table_dict [
 
 maybeMainIngredient = bag ["", mainIngredient.base];
 
-mealPart = table_dict [
+mealPart = table [
     [.prefix, .base, .partitive, .plural, .pluralPartitive],
     [_, "rosvopaisti", "rosvopaistia", _, _],
     [_, "leike", "leikettä", "leikkeet", "leikkeitä"],
@@ -206,7 +206,7 @@ mealPart = table_dict [
     [bag ["juures", "bataatti", "maalais", "ristikko"], _, _, +"ranskalaiset", +"ranskalaisia"]
 ];
 
-sauceModifier = table_dict [
+sauceModifier = table [
     [.base, .partitive, .adessive],
     ["juustoinen", "juustoista", "juustoisella"],
     ["tulinen", "tulista", "tulisella"],
@@ -220,7 +220,7 @@ sauceModifier = table_dict [
     ["jouluinen", "jouluista", "jouluisella"]
 ];
 
-baseSauce = table_dict [
+baseSauce = table [
     [.base, .partitive, .adessive],
     ["kasti", "kastia", "kastilla"],
     ["kastike", "kastiketta", "kastikkeella"],
@@ -274,7 +274,7 @@ sauce = bag [
     { " " maybeFoodSourcePossessive maybeSauceModifierAdessive maybeIngredientModifier maybeSauceIngredient baseSauce.adessive }
 ];
 
-cookingMethod = table_dict [
+cookingMethod = table [
     [.singular, .plural, .partitive, .pluralPartitive],
     ["paistettu", "paistetut", "paistettua", "paistettuja"],
     ["nuotiolla paistettu", "nuotiolla paistetut", "nuotiolla paistettua", "nuotiolla paistettuja"],
@@ -295,11 +295,13 @@ meal = bag [
     { bag["", { cookingMethod.pluralPartitive " "} ] bag["", { adjective.pluralPartitive " " }] mealPart.pluralPartitive }
 ];
 
+mealWithSauce = { meal bag ["", sauce] };
+
 pattern = bag [
-    { maybeFoodSourcePossessive meal " sekä " maybeFoodSourcePossessive meal },
-    { fullNamePossessive " " meal },
-    { meal " " foodSource.possessive " " bag ["tapaan", "tyyliin", "hovista", "nuotiolta", "leiristä"] },
-    { meal " á la " foodSource.base }
+    { maybeFoodSourcePossessive mealWithSauce " sekä " maybeFoodSourcePossessive mealWithSauce },
+    { fullNamePossessive " " mealWithSauce },
+    { mealWithSauce " " foodSource.possessive " " bag ["tapaan", "tyyliin", "hovista", "nuotiolta", "leiristä"] },
+    { mealWithSauce " á la " foodSource.base }
 ];
 
 result = { pattern };

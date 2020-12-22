@@ -1,5 +1,5 @@
 
-test_table = table_dict [
+test_table = table [
     [.a, .b],
     [_, "b"],
     ["a", _]
