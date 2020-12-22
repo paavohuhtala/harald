@@ -427,6 +427,19 @@ mod tests {
         }
       ))
     );
+    assert_eq!(
+      parse_table_row(r#"0.5 ["a", "b"]"#),
+      Ok((
+        "",
+        TableRow {
+          weight: Some(0.5),
+          items: vec![
+            TableEntry::Literal(Box::new(Expression::LiteralE(String::from("a")))),
+            TableEntry::Literal(Box::new(Expression::LiteralE(String::from("b"))))
+          ]
+        }
+      ))
+    );
   }
 
   #[test]

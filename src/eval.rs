@@ -121,7 +121,7 @@ pub enum CompilerError {
     row_number: usize,
   },
 
-  #[error("The fist item in a table must be a literal (was {0:?}).")]
+  #[error("The first item in a table must be a literal (was {0:?}).")]
   NonLiteralTableFirstPattern(ast::TableEntry),
 }
 

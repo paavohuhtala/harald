@@ -289,10 +289,10 @@ cookingMethod = table [
 ];
 
 meal = bag [
-    { bag["", { cookingMethod.singular " "} ] bag["", { adjective.singular " " }] mealPart.base },
-    { bag["", { cookingMethod.plural " "} ] bag["", { adjective.plural " " }] mealPart.plural },
-    { bag["", { cookingMethod.partitive " "} ] bag["", { adjective.partitive " " }] mealPart.partitive },
-    { bag["", { cookingMethod.pluralPartitive " "} ] bag["", { adjective.pluralPartitive " " }] mealPart.pluralPartitive }
+    { bag ["", { cookingMethod.singular " "}        ] bag["", { adjective.singular " " }] mealPart.base },
+    { bag ["", { cookingMethod.plural " "}          ] bag["", { adjective.plural " " }] mealPart.plural },
+    { bag ["", { cookingMethod.partitive " "}       ] bag["", { adjective.partitive " " }] mealPart.partitive },
+    { bag ["", { cookingMethod.pluralPartitive " "} ] bag["", { adjective.pluralPartitive " " }] mealPart.pluralPartitive }
 ];
 
 mealWithSauce = { meal bag ["", sauce] };
