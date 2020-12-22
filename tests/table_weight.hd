@@ -1,0 +1,8 @@
+
+test_table = table [
+        [.first, .second],
+    0   ["b", "b"],
+        ["a", "a"]
+];
+
+result = { test_table.first " " test_table.second };

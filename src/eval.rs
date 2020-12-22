@@ -248,7 +248,7 @@ impl CompiledScript {
 
             match maybe_expr {
               Some(expr) => {
-                items_per_column[column_number].push(expr);
+                items_per_column[column_number].push((row.weight, expr));
               }
               None => {}
             }
@@ -261,13 +261,18 @@ impl CompiledScript {
           self.id_counter += 1;
           let id = self.id_counter;
 
-          // TODO: implement weights
-          let distribution = WeightedIndex::new(vec![1.0; items.len()]).unwrap();
+          let distribution = WeightedIndex::new(
+            items
+              .iter()
+              .map(|(weight, _)| weight.unwrap_or(1.0))
+              .collect(),
+          )
+          .unwrap();
 
           let bag = Bag {
             id,
             distribution,
-            items,
+            items: items.into_iter().map(|(_, item)| item).collect(),
             name_hint: name_hint.clone(),
           };
 
