@@ -12,31 +12,3 @@
 ### Bag
 
 A bag is an unordered container, which can be randomly sampled with a weighted distribution.
-
-### Pattern
-
-A pattern
-
-```
-iceCream = { maybe(0.25 bag["chocolate" | "mint chip"]) " ice cream" }
-```
-
-## Evaluation semantics
-
-## Example: fantasy RPG weapon generator
-
-```
-adjective = bag["Awesome", "Epic", "Legendary", "Worn"];
-sword = prefix(bag("broad", "bastard", "long", "short", 2 ""), "sword");
-weaponType = bag(0.3 ...sword, "spear", "hammer", "bow", "staff", "dagger");
-ofSuffix = bag(2 "", { "of " bag["awesomeness", "epicness", "evilness"] });
-result = { adjective " " weaponType)};
-```
-
-## Built-ins
-
-### `bag[]`
-
-Creates a new bag from a list of weight expressions. Each expression has a default weight of 1.0, but weights can also be provided for any
-
-Evaluating a `bag` samples it according to the weights.
