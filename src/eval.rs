@@ -88,12 +88,16 @@ pub enum Expression {
 #[derive(Debug, Clone)]
 pub enum BuiltInFunction {
   UpperFirst,
+  MaybePrepend,
+  MaybeAppend,
 }
 
 impl BuiltInFunction {
   pub fn try_parse(s: &str) -> Option<BuiltInFunction> {
     match s {
       "capitalise" => Some(BuiltInFunction::UpperFirst),
+      "maybePrepend" => Some(BuiltInFunction::MaybePrepend),
+      "maybeAppend" => Some(BuiltInFunction::MaybeAppend),
       _ => None,
     }
   }
@@ -492,6 +496,54 @@ impl CompiledScript {
           function: BuiltInFunction::UpperFirst,
           inner: FunctionError::WrongNumberOfArguments {
             expected: 1,
+            was: arguments.len() as u8,
+          },
+        }),
+      },
+      BuiltInFunction::MaybePrepend => match arguments {
+        &[ref prefix, ref condition] => {
+          let inner = self.eval_expression(condition)?;
+          let inner_as_string = self.try_coerce_to_string(inner)?;
+
+          if inner_as_string.len() > 0 {
+            let prefix = self.eval_expression(prefix)?;
+            let prefix_as_string = self.try_coerce_to_string(prefix)?;
+
+            let mut prefixed = prefix_as_string.to_string();
+            prefixed.push_str(&inner_as_string);
+            Ok(Value::StringV(Cow::from(prefixed)))
+          } else {
+            Ok(Value::StringV(inner_as_string))
+          }
+        }
+        _ => Err(InterpreterError::FunctionError {
+          function: BuiltInFunction::MaybePrepend,
+          inner: FunctionError::WrongNumberOfArguments {
+            expected: 2,
+            was: arguments.len() as u8,
+          },
+        }),
+      },
+      BuiltInFunction::MaybeAppend => match arguments {
+        &[ref condition, ref suffix] => {
+          let inner = self.eval_expression(condition)?;
+          let inner_as_string = self.try_coerce_to_string(inner)?;
+
+          if inner_as_string.len() > 0 {
+            let suffix = self.eval_expression(suffix)?;
+            let suffix_as_string = self.try_coerce_to_string(suffix)?;
+
+            let mut suffixed = inner_as_string.to_string();
+            suffixed.push_str(&suffix_as_string);
+            Ok(Value::StringV(Cow::from(suffixed)))
+          } else {
+            Ok(Value::StringV(inner_as_string))
+          }
+        }
+        _ => Err(InterpreterError::FunctionError {
+          function: BuiltInFunction::MaybePrepend,
+          inner: FunctionError::WrongNumberOfArguments {
+            expected: 2,
             was: arguments.len() as u8,
           },
         }),
