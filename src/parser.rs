@@ -1,11 +1,14 @@
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while, take_while1};
-use nom::character::complete::{char, multispace0};
+use nom::bytes::complete::{escaped_transform, tag, take_while1};
 use nom::character::is_alphabetic;
-use nom::combinator::{all_consuming, cut, map, opt, recognize};
+use nom::combinator::{all_consuming, map, opt, recognize};
 use nom::multi::{many0, many1, separated_list0};
 use nom::number::complete::float;
 use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::{
+  character::complete::{char, multispace0},
+  combinator::value,
+};
 use nom::{
   error::{context, VerboseError},
   IResult,
@@ -17,12 +20,23 @@ use crate::ast::{
   Assignment, Bag, BagEntry, Expression, Pattern, Statement, Table, TableEntry, TableRow,
 };
 
-fn parse_string_literal<'a>(input: &'a str) -> ParseResult<&'a str> {
+fn parse_string_literal(input: &str) -> ParseResult<String> {
   context(
     "string literal",
     delimited(
       char('"'),
-      cut(take_while(|c| c != '"' && c != '\n')),
+      map(
+        opt(escaped_transform(
+          nom::bytes::complete::is_not("\\\""),
+          '\\',
+          alt((
+            value("\\", tag("\\")),
+            value("\"", tag("\"")),
+            value("\n", tag("\n")),
+          )),
+        )),
+        |literal: Option<String>| literal.unwrap_or_else(|| String::from("")),
+      ),
       char('"'),
     ),
   )(input)
@@ -200,9 +214,7 @@ pub fn parse_expression(input: &str) -> ParseResult<Expression> {
     "expression",
     alt((
       map(parse_pattern, Expression::PatternE),
-      map(parse_string_literal, |s| {
-        Expression::LiteralE(String::from(s))
-      }),
+      map(parse_string_literal, |s| Expression::LiteralE(s)),
       map(parse_table, Expression::TableE),
       map(parse_bag, Expression::BagE),
       parse_property_access,
@@ -254,7 +266,22 @@ mod tests {
     use super::parse_string_literal;
     assert_eq!(
       parse_string_literal(r#""Hello, world!""#),
-      Ok(("", "Hello, world!"))
+      Ok(("", String::from("Hello, world!")))
+    );
+  }
+
+  #[test]
+  fn test_parse_string_literal_empty() {
+    use super::parse_string_literal;
+    assert_eq!(parse_string_literal(r#""""#), Ok(("", String::from(""))));
+  }
+
+  #[test]
+  fn test_parse_string_literal_newline() {
+    use super::parse_string_literal;
+    assert_eq!(
+      parse_string_literal("\"Hello\nWorld\""),
+      Ok(("", String::from("Hello\nWorld")))
     );
   }
 
