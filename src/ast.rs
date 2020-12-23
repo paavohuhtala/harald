@@ -47,6 +47,7 @@ pub enum Expression {
   PatternE(Pattern),
   PropertyAccessE(Box<Expression>, String),
   TableE(Table),
+  CallE(String, Vec<Expression>),
 }
 
 #[derive(PartialEq, Debug, Clone)]

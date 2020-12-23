@@ -87,7 +87,7 @@ fn run_repl() -> Result<(), anyhow::Error> {
                   println!("< {}", result);
                 }
                 Err(err) => {
-                  println!("Error: {}", err);
+                  println!("Interpreter error: {}", err);
                 }
               },
             }

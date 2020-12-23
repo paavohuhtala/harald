@@ -177,6 +177,21 @@ pub fn parse_property_access(input: &str) -> ParseResult<Expression> {
   ))
 }
 
+pub fn parse_call(input: &str) -> ParseResult<Expression> {
+  let parse_argument_list = separated_list(delimited(ws, tag(","), ws), parse_expression);
+
+  context(
+    "function call",
+    map(
+      tuple((
+        parse_identifier,
+        delimited(tag("("), delimited(ws, parse_argument_list, ws), tag(")")),
+      )),
+      |(function, args)| Expression::CallE(function.to_string(), args),
+    ),
+  )(input)
+}
+
 pub fn parse_expression(input: &str) -> ParseResult<Expression> {
   context(
     "expression",
@@ -188,6 +203,7 @@ pub fn parse_expression(input: &str) -> ParseResult<Expression> {
       map(parse_table, Expression::TableE),
       map(parse_bag, Expression::BagE),
       parse_property_access,
+      parse_call,
       map(parse_identifier, |s| Expression::VariableE(String::from(s))),
     )),
   )(input)
@@ -357,6 +373,55 @@ mod tests {
             Expression::VariableE(String::from("world"))
           ]
         })
+      ))
+    );
+  }
+
+  #[test]
+  fn test_parse_call_1() {
+    use super::{parse_expression, Expression};
+
+    assert_eq!(
+      parse_expression(r#"print("Hello, world!")"#),
+      Ok((
+        "",
+        Expression::CallE(
+          String::from("print"),
+          vec![Expression::LiteralE(String::from("Hello, world!"))]
+        )
+      ))
+    );
+  }
+
+  #[test]
+  fn test_parse_call_0() {
+    use super::{parse_expression, Expression};
+
+    assert_eq!(
+      parse_expression(r#"printHello()"#),
+      Ok(("", Expression::CallE(String::from("printHello"), vec![])))
+    );
+  }
+
+  #[test]
+  fn test_parse_call_2_pattern() {
+    use super::{parse_expression, Expression, Pattern};
+
+    assert_eq!(
+      parse_expression(r#"concat( { "Hello" }, {" world!"} )"#),
+      Ok((
+        "",
+        Expression::CallE(
+          String::from("concat"),
+          vec![
+            Expression::PatternE(Pattern {
+              parts: vec![Expression::LiteralE(String::from("Hello")),]
+            }),
+            Expression::PatternE(Pattern {
+              parts: vec![Expression::LiteralE(String::from(" world!")),]
+            }),
+          ]
+        )
       ))
     );
   }

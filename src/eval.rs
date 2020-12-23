@@ -1,4 +1,4 @@
-use crate::ast;
+use crate::{ast, string_utils};
 use rand::{
   distributions::{weighted::alias_method::WeightedIndex, WeightedError},
   prelude::Distribution,
@@ -82,6 +82,38 @@ pub enum Expression {
   BagE(Bag),
   TableE(Table),
   PropertyAccessE(Box<Expression>, String),
+  CallE(BuiltInFunction, Vec<Expression>),
+}
+
+#[derive(Debug, Clone)]
+pub enum BuiltInFunction {
+  UpperFirst,
+}
+
+impl BuiltInFunction {
+  pub fn try_parse(s: &str) -> Option<BuiltInFunction> {
+    match s {
+      "capitalise" => Some(BuiltInFunction::UpperFirst),
+      _ => None,
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+pub enum FunctionLike {
+  BuiltIn(BuiltInFunction),
+}
+
+#[derive(Error, Debug)]
+pub enum FunctionError {
+  #[error("Expected argument #{n} to be {expected}, was {was}")]
+  UnexpectedArgumentType {
+    n: u8,
+    expected: &'static str,
+    was: &'static str,
+  },
+  #[error("Expected {expected} arguments, received {was}")]
+  WrongNumberOfArguments { expected: u8, was: u8 },
 }
 
 #[derive(Error, Debug)]
@@ -104,6 +136,12 @@ pub enum InterpreterError {
 
   #[error("table with columns {columns:?} has no key \"{key}\"")]
   TableMissingProperty { columns: Vec<String>, key: String },
+
+  #[error("Error invoking function {function:?}: {inner}")]
+  FunctionError {
+    function: BuiltInFunction,
+    inner: FunctionError,
+  },
 }
 
 #[derive(Error, Debug)]
@@ -127,8 +165,11 @@ pub enum CompilerError {
     row_number: usize,
   },
 
-  #[error("The first item in a table must be a literal (was {0:?}).")]
+  #[error("The first item in a table must be a literal (was {0:?})")]
   NonLiteralTableFirstPattern(ast::TableEntry),
+
+  #[error("Function {0} is not defined")]
+  UnknownFunction(String),
 }
 
 #[derive(Error, Debug)]
@@ -329,6 +370,18 @@ impl CompiledScript {
         let expression = self.transform_expression(*expression, name_hint)?;
         Ok(Expression::PropertyAccessE(Box::new(expression), property))
       }
+      ast::Expression::CallE(name, arguments) => {
+        // TODO: Support user defined functions / parameterised patterns
+        let function =
+          BuiltInFunction::try_parse(&name).ok_or_else(|| CompilerError::UnknownFunction(name))?;
+
+        let arguments = arguments
+          .into_iter()
+          .map(|expr| self.transform_expression(expr, name_hint))
+          .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Expression::CallE(function, arguments))
+      }
     }
   }
 
@@ -416,6 +469,33 @@ impl CompiledScript {
           }),
         }
       }
+      Expression::CallE(function, arguments) => {
+        self.eval_builtin_function(function, arguments.as_slice())
+      }
+    }
+  }
+
+  fn eval_builtin_function<'a>(
+    &'a self,
+    function: &BuiltInFunction,
+    arguments: &'a [Expression],
+  ) -> Result<Value<'a>, InterpreterError> {
+    match function {
+      BuiltInFunction::UpperFirst => match arguments {
+        &[ref inner] => {
+          let inner = self.eval_expression(inner)?;
+          let inner_as_string = inner.try_as_string()?;
+          let capitalised = string_utils::capitalise_first(inner_as_string.as_ref());
+          Ok(Value::StringV(Cow::from(capitalised)))
+        }
+        _ => Err(InterpreterError::FunctionError {
+          function: BuiltInFunction::UpperFirst,
+          inner: FunctionError::WrongNumberOfArguments {
+            expected: 1,
+            was: arguments.len() as u8,
+          },
+        }),
+      },
     }
   }
 
@@ -451,7 +531,7 @@ mod tests {
   use super::{ast, compile_script};
 
   #[test]
-  fn test_eval_literal() {
+  fn eval_literal() {
     let compiled = compile_script(vec![ast::Statement::AssignmentS(ast::Assignment {
       name: String::from("result"),
       value: Box::new(ast::Expression::LiteralE(String::from("Hello, world!"))),
@@ -460,5 +540,20 @@ mod tests {
 
     let output = compiled.run().unwrap();
     assert_eq!(output, "Hello, world!");
+  }
+
+  #[test]
+  fn eval_upper_first() {
+    let compiled = compile_script(vec![ast::Statement::AssignmentS(ast::Assignment {
+      name: String::from("result"),
+      value: Box::new(ast::Expression::CallE(
+        String::from("capitalise"),
+        vec![ast::Expression::LiteralE(String::from("robert"))],
+      )),
+    })])
+    .unwrap();
+
+    let output = compiled.run().unwrap();
+    assert_eq!(output, "Robert");
   }
 }

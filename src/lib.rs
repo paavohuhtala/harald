@@ -1,6 +1,7 @@
 mod ast;
 pub mod eval;
 pub mod parser;
+pub mod string_utils;
 
 pub fn compile_script(script: &str) -> Result<eval::CompiledScript, eval::CompilerError> {
   match parser::parse_program(script) {
