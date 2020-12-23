@@ -1,8 +1,8 @@
 
-test_table = table [
+testTable = table [
         [.first, .second],
     0   ["b", "b"],
         ["a", "a"]
 ];
 
-result = { test_table.first " " test_table.second };
+result = { testTable.first " " testTable.second };

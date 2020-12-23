@@ -12,8 +12,10 @@ fn run_file(path: &str) -> Result<(), anyhow::Error> {
 
   let script = compile_script(&source)?;
 
-  let output = script.run()?;
-  println!("{}", output);
+  for _ in 0..10 {
+    let output = script.run()?;
+    println!("{}", output);
+  }
 
   Ok(())
 }

@@ -1,5 +1,6 @@
 mod ast;
 pub mod eval;
+mod nom_unicode;
 pub mod parser;
 pub mod string_utils;
 

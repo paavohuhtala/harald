@@ -1,9 +1,9 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
-use nom::character::complete::{alpha1, char, multispace0};
-use nom::character::{is_alphabetic, is_alphanumeric};
+use nom::character::complete::{char, multispace0};
+use nom::character::is_alphabetic;
 use nom::combinator::{all_consuming, cut, map, opt, recognize};
-use nom::multi::{many0, many1, separated_list};
+use nom::multi::{many0, many1, separated_list0};
 use nom::number::complete::float;
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{
@@ -50,7 +50,7 @@ pub fn parse_bag<'a>(input: &'a str) -> ParseResult<Bag> {
       ws,
       delimited(
         tag("["),
-        separated_list(tag(","), terminated(parse_bag_entry, ws)),
+        separated_list0(tag(","), terminated(parse_bag_entry, ws)),
         tag("]"),
       ),
     )),
@@ -59,10 +59,13 @@ pub fn parse_bag<'a>(input: &'a str) -> ParseResult<Bag> {
   Ok((input, Bag { items }))
 }
 
+/*pub fn is_allowed_letter(ch: char) -> bool {
+  ch.is_alphabetic()
+}*/
+
 pub fn parse_identifier(input: &str) -> ParseResult<&str> {
-  let first_letter = alpha1;
-  let rest = take_while(|b| is_alphanumeric(b as u8) || b == '_');
-  let identifier = preceded(first_letter, rest);
+  let first_letter = nom::character::complete::satisfy(|ch| ch.is_alphabetic());
+  let identifier = preceded(first_letter, crate::nom_unicode::complete::alphanumeric0);
   recognize(identifier)(input)
 }
 
@@ -81,7 +84,7 @@ pub fn parse_table_header(input: &str) -> ParseResult<Vec<String>> {
     "table header",
     delimited(
       char('['),
-      separated_list(
+      separated_list0(
         tag(","),
         delimited(
           multispace0,
@@ -124,7 +127,7 @@ pub fn parse_table_row(input: &str) -> ParseResult<TableRow> {
 
   let (input, items) = delimited(
     char('['),
-    separated_list(
+    separated_list0(
       tag(","),
       delimited(
         multispace0,
@@ -151,7 +154,7 @@ pub fn parse_table(input: &str) -> ParseResult<Table> {
             ws,
             tuple((
               terminated(parse_table_header, tuple((ws, char(','), ws))),
-              separated_list(char(','), parse_table_row),
+              separated_list0(char(','), parse_table_row),
             )),
             ws,
           ),
@@ -178,7 +181,7 @@ pub fn parse_property_access(input: &str) -> ParseResult<Expression> {
 }
 
 pub fn parse_call(input: &str) -> ParseResult<Expression> {
-  let parse_argument_list = separated_list(delimited(ws, tag(","), ws), parse_expression);
+  let parse_argument_list = separated_list0(delimited(ws, tag(","), ws), parse_expression);
 
   context(
     "function call",
