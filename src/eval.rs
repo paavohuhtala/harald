@@ -108,11 +108,17 @@ pub enum InterpreterError {
 
 #[derive(Error, Debug)]
 pub enum CompilerError {
-  #[error("A table must have at least one column")]
-  EmptyTable,
+  #[error("A table must have at least one column (in {name})")]
+  EmptyTable { name: String },
 
-  #[error("A bag must have at least one item")]
-  EmptyBag,
+  #[error("A bag must have at least one item (in {name}])")]
+  EmptyBag { name: String },
+
+  #[error("Column {column_name} had 0 non-hole entries (in {in_variable})")]
+  EmptyTableColumn {
+    column_name: String,
+    in_variable: String,
+  },
 
   #[error("Error on table row {row_number}: expected {} columns ({expected_columns:?}), found {} values ({values:?})", .expected_columns.len(), values.len())]
   InvalidTableRow {
@@ -139,6 +145,28 @@ pub enum ExecutionError {
 pub enum NameHint {
   InAssignment(String),
   Repl,
+}
+
+impl NameHint {
+  pub fn get_name(&self) -> String {
+    match self {
+      NameHint::InAssignment(name) => name.clone(),
+      NameHint::Repl => String::from("<repl>"),
+    }
+  }
+}
+
+trait NameHintUtil {
+  fn get_name_or_default(&self) -> String;
+}
+
+impl NameHintUtil for Option<NameHint> {
+  fn get_name_or_default(&self) -> String {
+    self
+      .as_ref()
+      .map(|hint| hint.get_name())
+      .unwrap_or_else(|| String::from("<unknown>"))
+  }
 }
 
 #[derive(Debug)]
@@ -196,7 +224,9 @@ impl CompiledScript {
         }
 
         let distribution = WeightedIndex::new(weights).map_err(|err| match err {
-          WeightedError::NoItem => CompilerError::EmptyBag,
+          WeightedError::NoItem => CompilerError::EmptyBag {
+            name: name_hint.get_name_or_default(),
+          },
           _ => panic!("Unhandled WeightedIndex error: {}", err),
         })?;
 
@@ -211,7 +241,9 @@ impl CompiledScript {
       }
       ast::Expression::TableE(table) => {
         if table.columns.len() < 1 {
-          return Err(CompilerError::EmptyTable);
+          return Err(CompilerError::EmptyTable {
+            name: name_hint.get_name_or_default(),
+          });
         }
 
         let mut items_per_column = vec![Vec::new(); table.columns.len()];
@@ -255,29 +287,38 @@ impl CompiledScript {
           }
         }
 
-        let mut bags = HashMap::new();
+        let bags = items_per_column
+          .into_iter()
+          .zip(table.columns)
+          .map(|(items, column)| {
+            if items.len() == 0 {
+              return Err(CompilerError::EmptyTableColumn {
+                column_name: column.clone(),
+                in_variable: name_hint.get_name_or_default(),
+              });
+            }
 
-        for (items, column) in items_per_column.into_iter().zip(table.columns) {
-          self.id_counter += 1;
-          let id = self.id_counter;
+            self.id_counter += 1;
+            let id = self.id_counter;
 
-          let distribution = WeightedIndex::new(
-            items
-              .iter()
-              .map(|(weight, _)| weight.unwrap_or(1.0))
-              .collect(),
-          )
-          .unwrap();
+            let distribution = WeightedIndex::new(
+              items
+                .iter()
+                .map(|(weight, _)| weight.unwrap_or(1.0))
+                .collect(),
+            )
+            .unwrap();
 
-          let bag = Bag {
-            id,
-            distribution,
-            items: items.into_iter().map(|(_, item)| item).collect(),
-            name_hint: name_hint.clone(),
-          };
+            let bag = Bag {
+              id,
+              distribution,
+              items: items.into_iter().map(|(_, item)| item).collect(),
+              name_hint: name_hint.clone(),
+            };
 
-          bags.insert(column, bag);
-        }
+            Ok((column, bag))
+          })
+          .collect::<Result<HashMap<_, _>, CompilerError>>()?;
 
         Ok(Expression::TableE(Table {
           name_hint: name_hint.clone(),

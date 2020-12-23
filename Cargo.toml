@@ -9,6 +9,7 @@ nom = "5.1.2"
 rand = "0.7.3"
 thiserror = "1.0.20"
 anyhow = "1.0.32"
+matches = "0.1.8"
 
 [lib]
 name = "harald"
