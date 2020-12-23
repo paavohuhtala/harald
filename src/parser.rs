@@ -136,6 +136,7 @@ pub fn parse_table_entry(input: &str) -> ParseResult<TableEntry> {
 }
 
 pub fn parse_table_row(input: &str) -> ParseResult<TableRow> {
+  let (input, _) = ws(input)?;
   let (input, weight) = opt(float)(input)?;
   let (input, _) = ws(input)?;
 
