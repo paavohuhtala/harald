@@ -1,0 +1,185 @@
+
+kasvi = table [
+    [.perus, .partitiivi, .kompositiivi],
+    ["vuohenputki", "vuohenputkea", +""],
+    ["siankärsämö", +"ä", +""],
+    ["voikukka", +"a", +""],
+    ["nokkonen", "nokkosta", "nokkos"],
+    [{ bag ["maito", ""] "horsma" }, +"a", +""],
+    ["poimulehti", "poimulehteä", +""],
+    ["herkkusieni", "herkkusientä", +""],
+    ["suppilovahvero", +"a", +""],
+    ["korvasieni", "korvasientä", +""],
+    ["siitakesieni", "siitakesientä", +""],
+    ["parsa", +"a", +""],
+    [{ bag [2 "", "myski", "kesä", "spagetti"] "kurpitsa"}, +"a", +""],
+    ["porkkana", +"a", +""],
+    [{bag ["puna", "kevät", "salotti", "ruoho"] "sipuli" }, +"a", +""],
+    [{bag ["varhais", "kerä", "kiinan", "puna"] "kaali" }, +"a", +""]
+];
+
+makeaKasvi = table [
+    [.kompositiivi, .monikko],
+    ["mustikka", "mustikoita"],
+    ["puolukka", "puolukoita"],
+    ["karpalo", "karpaloita"],
+    ["variksenmarja", "variksenmarjoja"],
+    ["karviais", "karviaisia"],
+    ["mansikka", "mansikoita"],
+    ["metsämansikka", "metsämansikoita"],
+    0.5 ["mustaherukka", "mustaherukoita"],
+    0.5 ["mustaviinimarja", "mustaviinimarjoja"],
+    0.5 ["punaherukka", "punaherukoita"],
+    0.5 ["punaviinimarja", "punaviinimarjoja"],
+    ["valkoherukka", "valkoherukoita"]
+];
+
+mausteKasvi = table [
+    [.perus, .partitiivi, .kompositiivi],
+    ["kuusi", "kuusta", +""],
+    ["paju", +"a", +""],
+    ["koivu", +"a", +""],
+    ["käpy", +"ä", +""],
+    ["mänty", +"ä", +""],
+    ["jäkälä", +"ä", +""],
+    ["levä", +"ä", +""]
+];
+
+liha = table [
+    [.perus, .partitiivi, .kompositiivi],
+    ["kana", +"a", +""],
+    ["kanankoipi", "kanankoipea", "kanankoipi"],
+    ["luuydin", +"tä", +""],
+    ["possu", +"a", +""],
+    ["porsas", +"ta", +""],
+    ["kalkkuna", +"a", +""],
+    ["viiriäinen", "viiriäistä", "viiriäis"],
+    ["härkä", +"ä", +""],
+    ["sorsa", +"a", +""],
+    ["hirvi", "hirveä", +""],
+    ["poro", +"a", +""],
+    ["villisika", +"a", +""],
+    ["siansorkka", +"a", +""],
+    ["entrecote", +"ta", +""]
+];
+
+kala = table [
+    [.perus, .partitiivi, .kompositiivi],
+    ["siika", +"a", +""],
+    ["lahna", +"a", +""],
+    ["lohi", "lohta", +""]
+];
+
+ruokalajiTyyppi = table [
+    [.perus, .partitiivi],
+    ["keitto", +"a"],
+    ["muhennos", +"a"],
+    ["paistos", +"a"],
+    ["hauduke", +"a"]
+];
+
+kastikeEtuliite = bag [
+    "makea",
+    "hapan",
+    "katajainen"
+];
+
+kastikeTyyppi = table [
+    [.perus],
+    ["liemi"],
+    ["majoneesi"],
+    ["uute"],
+    ["kastike"],
+    ["emulsio"],
+    ["pyre"],
+    ["voi"],
+    ["öljy"]
+];
+
+ehkäMissäValmistettu = bag [
+    5 "",
+    "kermassa",
+    "voissa",
+    "maidossa",
+    "silavassa",
+    "viinissä",
+    "oluessa",
+    "sahdissa",
+    "simassa",
+    "glögissä",
+    "lihaliemessä",
+    "kalaliemessä"
+];
+
+kypsennystapa = table [
+    [.perus, .partitiivi, .monikko],
+    ["haudutettu", +"a", +"ja"],
+    ["keitetty", +"ä", "+jä"],
+    ["uppopaistettu", +"a", +"ja"],
+    ["kypsytetty", +"ä", +"jä"],
+    ["kuullotettu", +"a", +"ja"],
+    ["paahdettu", +"a", +"ja"],
+    ["kiehautettu", +"a", +"ja"],
+    ["poltettu", +"a", +"ja"],
+    ["liekitetty", +"ä", +"jä"],
+    ["käristetty", +"a", +"jä"]
+];
+
+valmistustapa = table [
+    [.perus, .partitiivi, .monikko],
+    ["fermentoitu", +"a", +"ja"],
+    ["hapatettu", +"a", +"ja"],
+    ["redusoitu", +"a", +"ja"],
+    ["pakastettu", +"a", +"ja"],
+    ["murskattu", +"a", +"ja"],
+    ["revitty", +"ä", +"jä"],
+    ["kuorrutettu", +"a", +"ja"],
+    4 [
+        { maybeAppend(ehkäMissäValmistettu, " ") kypsennystapa.perus },
+        { maybeAppend(ehkäMissäValmistettu, " ") kypsennystapa.partitiivi },
+        { maybeAppend(ehkäMissäValmistettu, " ") kypsennystapa.monikko }
+    ]
+];
+
+jälkiruokaTyyppi = bag [
+    "jäätelö",
+    "sorbet",
+    "jäädyke",
+    "mousse",
+    "vaahto"
+];
+
+jälkiruoka = bag [
+    {
+        bag [
+            kasvi.kompositiivi,
+            mausteKasvi.kompositiivi
+        ]
+        jälkiruokaTyyppi
+        bag [
+            "",
+            {
+                " ja " bag [
+                    "",
+                    { valmistustapa.monikko " " }
+                ]
+                makeaKasvi.monikko
+            }
+        ]
+    }
+];
+
+kastike = bag [
+    { bag [ kasvi.kompositiivi, liha.perus, mausteKasvi.kompositiivi ] kastikeTyyppi.perus }
+];
+
+ehkäKastike = { bag ["", { "ja " kastike }] };
+
+ruokalaji = bag [
+    { valmistustapa.partitiivi " " kasvi.partitiivi maybePrepend(" ", ehkäMissäValmistettu) maybePrepend(" ", ehkäKastike) },
+    { valmistustapa.perus " " kasvi.perus maybePrepend(" ", ehkäKastike) },
+    jälkiruoka
+];
+
+
+result = { ruokalaji };
