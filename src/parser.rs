@@ -64,7 +64,10 @@ pub fn parse_bag<'a>(input: &'a str) -> ParseResult<Bag> {
       ws,
       delimited(
         tag("["),
-        separated_list0(tag(","), terminated(parse_bag_entry, ws)),
+        terminated(
+          separated_list0(tag(","), terminated(parse_bag_entry, ws)),
+          opt(terminated(tag(","), ws)),
+        ),
         tag("]"),
       ),
     )),
@@ -72,10 +75,6 @@ pub fn parse_bag<'a>(input: &'a str) -> ParseResult<Bag> {
 
   Ok((input, Bag { items }))
 }
-
-/*pub fn is_allowed_letter(ch: char) -> bool {
-  ch.is_alphabetic()
-}*/
 
 pub fn parse_identifier(input: &str) -> ParseResult<&str> {
   let first_letter = nom::character::complete::satisfy(|ch| ch.is_alphabetic());
@@ -171,7 +170,7 @@ pub fn parse_table(input: &str) -> ParseResult<Table> {
               terminated(parse_table_header, tuple((ws, char(','), ws))),
               separated_list0(char(','), parse_table_row),
             )),
-            ws,
+            delimited(ws, opt(char(',')), ws),
           ),
           char(']'),
         ),
@@ -298,6 +297,26 @@ mod tests {
 
     assert_eq!(
       parse_bag(r#"bag["epic", "awesome", "cool"]"#),
+      Ok((
+        "",
+        Bag {
+          items: expected_items.clone()
+        }
+      ))
+    );
+
+    assert_eq!(
+      parse_bag(r#"bag["epic", "awesome", "cool",]"#),
+      Ok((
+        "",
+        Bag {
+          items: expected_items.clone()
+        }
+      ))
+    );
+
+    assert_eq!(
+      parse_bag(r#"bag [ "epic",   "awesome",  "cool" ,  ]"#),
       Ok((
         "",
         Bag {

@@ -1,0 +1,8 @@
+
+testTable = table [
+    [.a, .b],
+    ["a", "b"],
+    ["a", "b"],
+];
+
+result = { testTable.a " " testTable.b };

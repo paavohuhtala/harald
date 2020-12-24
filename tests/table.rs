@@ -12,6 +12,12 @@ fn table_holes() {
 }
 
 #[test]
+fn table_trailing_comma() {
+  let output = run_script(include_str!("./table_trailing.hd")).unwrap();
+  assert_eq!(output, "a b");
+}
+
+#[test]
 fn table_weight() {
   let output = run_script(include_str!("./table_weight.hd")).unwrap();
   assert_eq!(output, "a a");
