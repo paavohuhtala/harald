@@ -488,7 +488,7 @@ impl CompiledScript {
       BuiltInFunction::UpperFirst => match arguments {
         &[ref inner] => {
           let inner = self.eval_expression(inner)?;
-          let inner_as_string = inner.try_as_string()?;
+          let inner_as_string = self.try_coerce_to_string(inner)?;
           let capitalised = string_utils::capitalise_first(inner_as_string.as_ref());
           Ok(Value::StringV(Cow::from(capitalised)))
         }
