@@ -169,8 +169,11 @@ pub enum CompilerError {
     row_number: usize,
   },
 
-  #[error("The first item in a table must be a literal (was {0:?})")]
-  NonLiteralTableFirstPattern(ast::TableEntry),
+  #[error("The first item in table {in_variable} on row {row_number} must not be an append entry")]
+  AppendInFirstColumn {
+    row_number: usize,
+    in_variable: String,
+  },
 
   #[error("Function {0} is not defined")]
   UnknownFunction(String),
@@ -306,7 +309,11 @@ impl CompiledScript {
 
           let base_item = match base_item {
             ast::TableEntry::Literal(s) => self.transform_expression(*s, name_hint)?,
-            _ => Expression::LiteralE(String::new()),
+            ast::TableEntry::Hole => Expression::LiteralE(String::new()),
+            ast::TableEntry::Append(_) => Err(CompilerError::AppendInFirstColumn {
+              row_number,
+              in_variable: name_hint.get_name_or_default(),
+            })?,
           };
 
           for (column_number, item) in row.items.into_iter().enumerate() {
