@@ -1,8 +1,6 @@
 use crate::{ast, string_utils};
-use rand::{
-  distributions::{weighted::alias_method::WeightedIndex, WeightedError},
-  prelude::Distribution,
-};
+use rand::distributions::WeightedError;
+use rand_distr::{Distribution, WeightedIndex};
 use std::{borrow::Cow, collections::HashMap, fmt::Display};
 use thiserror::Error;
 
@@ -353,11 +351,11 @@ impl CompiledScript {
             self.id_counter += 1;
             let id = self.id_counter;
 
-            let distribution = WeightedIndex::new(
+            let distribution: WeightedIndex<f32> = WeightedIndex::new(
               items
                 .iter()
                 .map(|(weight, _)| weight.unwrap_or(1.0))
-                .collect(),
+                .collect::<Vec<_>>(),
             )
             .unwrap();
 

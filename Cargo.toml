@@ -2,14 +2,15 @@
 name = "harald-lang"
 version = "0.0.1"
 authors = ["paavohuhtala <paavo.huhtala@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-nom = "6"
-rand = "0.7.3"
-thiserror = "1.0.20"
-anyhow = "1.0.32"
-matches = "0.1.8"
+nom = "7.1.3"
+rand = "0.8.5"
+thiserror = "1.0.40"
+anyhow = "1.0.70"
+matches = "0.1.10"
+rand_distr = "0.4.3"
 
 [lib]
 name = "harald"
