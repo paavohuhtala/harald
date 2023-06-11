@@ -66,6 +66,7 @@ pub struct Table {
 
 #[derive(Debug, Clone)]
 pub struct Bag {
+  #[allow(dead_code)]
   id: usize,
   name_hint: Option<NameHint>,
   items: Vec<Expression>,
@@ -221,6 +222,12 @@ pub struct CompiledScript {
   id_counter: usize,
 }
 
+impl Default for CompiledScript {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl CompiledScript {
   pub fn new() -> Self {
     CompiledScript {
@@ -286,7 +293,7 @@ impl CompiledScript {
         Ok(Expression::BagE(bag))
       }
       ast::Expression::TableE(table) => {
-        if table.columns.len() < 1 {
+        if table.columns.is_empty() {
           return Err(CompilerError::EmptyTable {
             name: name_hint.get_name_or_default(),
           });
@@ -298,8 +305,8 @@ impl CompiledScript {
           if row.items.len() != table.columns.len() {
             return Err(CompilerError::InvalidTableRow {
               row_number,
-              expected_columns: table.columns.clone(),
-              values: row.items.clone(),
+              expected_columns: table.columns,
+              values: row.items,
             });
           }
 
@@ -328,11 +335,8 @@ impl CompiledScript {
               }
             };
 
-            match maybe_expr {
-              Some(expr) => {
-                items_per_column[column_number].push((row.weight, expr));
-              }
-              None => {}
+            if let Some(expr) = maybe_expr {
+              items_per_column[column_number].push((row.weight, expr));
             }
           }
         }
@@ -341,9 +345,9 @@ impl CompiledScript {
           .into_iter()
           .zip(table.columns)
           .map(|(items, column)| {
-            if items.len() == 0 {
+            if items.is_empty() {
               return Err(CompilerError::EmptyTableColumn {
-                column_name: column.clone(),
+                column_name: column,
                 in_variable: name_hint.get_name_or_default(),
               });
             }
@@ -491,7 +495,7 @@ impl CompiledScript {
   ) -> Result<Value<'a>, InterpreterError> {
     match function {
       BuiltInFunction::UpperFirst => match arguments {
-        &[ref inner] => {
+        [inner] => {
           let inner = self.eval_expression(inner)?;
           let inner_as_string = self.try_coerce_to_string(inner)?;
           let capitalised = string_utils::capitalise_first(inner_as_string.as_ref());
@@ -506,7 +510,7 @@ impl CompiledScript {
         }),
       },
       BuiltInFunction::MaybePrepend => match arguments {
-        &[ref prefix, ref condition] => {
+        [prefix, condition] => {
           let inner = self.eval_expression(condition)?;
           let inner_as_string = self.try_coerce_to_string(inner)?;
 
@@ -530,7 +534,7 @@ impl CompiledScript {
         }),
       },
       BuiltInFunction::MaybeAppend => match arguments {
-        &[ref condition, ref suffix] => {
+        [condition, suffix] => {
           let inner = self.eval_expression(condition)?;
           let inner_as_string = self.try_coerce_to_string(inner)?;
 

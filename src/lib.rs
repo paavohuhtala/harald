@@ -8,7 +8,7 @@ pub fn compile_script(script: &str) -> Result<eval::CompiledScript, eval::Compil
   match parser::parse_program(script) {
     Err(nom::Err::Error(err)) => panic!("Parse error: {}", nom::error::convert_error(script, err)),
     Err(err) => panic!("Parse error: {}", err),
-    Ok((_, parsed)) => return eval::compile_script(parsed),
+    Ok((_, parsed)) => eval::compile_script(parsed),
   }
 }
 

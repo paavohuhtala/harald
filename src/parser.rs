@@ -42,12 +42,12 @@ fn parse_string_literal(input: &str) -> ParseResult<String> {
   )(input)
 }
 
-fn ws<'a>(input: &'a str) -> ParseResult<()> {
+fn ws(input: &str) -> ParseResult<()> {
   let (input, _) = multispace0(input)?;
   Ok((input, ()))
 }
 
-pub fn parse_bag_entry<'a>(input: &'a str) -> ParseResult<BagEntry> {
+pub fn parse_bag_entry(input: &str) -> ParseResult<BagEntry> {
   let (input, (_, weight, _, value)) =
     context("bag entry", tuple((ws, opt(float), ws, parse_expression)))(input)?;
 
@@ -56,7 +56,7 @@ pub fn parse_bag_entry<'a>(input: &'a str) -> ParseResult<BagEntry> {
   Ok((input, BagEntry { weight, value }))
 }
 
-pub fn parse_bag<'a>(input: &'a str) -> ParseResult<Bag> {
+pub fn parse_bag(input: &str) -> ParseResult<Bag> {
   let (input, (_, _, items)) = context(
     "bag",
     tuple((
@@ -214,7 +214,7 @@ pub fn parse_expression(input: &str) -> ParseResult<Expression> {
     "expression",
     alt((
       map(parse_pattern, Expression::PatternE),
-      map(parse_string_literal, |s| Expression::LiteralE(s)),
+      map(parse_string_literal, Expression::LiteralE),
       map(parse_table, Expression::TableE),
       map(parse_bag, Expression::BagE),
       parse_property_access,

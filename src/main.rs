@@ -41,15 +41,15 @@ fn run_repl() -> Result<(), anyhow::Error> {
       ":q" | ":exit" => {
         break;
       }
-      statement if command.ends_with(";") => {
+      statement if command.ends_with(';') => {
         let statement = parse_statement(statement);
         match statement {
           Err(err) => {
-            println!("Invalid statement: {}", err.to_string());
+            println!("Invalid statement: {}", err);
             continue;
           }
           Ok((input, statement)) => {
-            if input.len() > 0 {
+            if !input.is_empty() {
               println!("WARNING: Unprocessed input ({})", input);
             }
 
@@ -68,11 +68,11 @@ fn run_repl() -> Result<(), anyhow::Error> {
 
         match expression {
           Err(err) => {
-            println!("Invalid expression: {}", err.to_string());
+            println!("Invalid expression: {}", err);
             continue;
           }
           Ok((input, expression)) => {
-            if input.len() > 0 {
+            if !input.is_empty() {
               println!("WARNING: Unprocessed input ({})", input);
             }
 
@@ -81,7 +81,7 @@ fn run_repl() -> Result<(), anyhow::Error> {
 
             match expression {
               Err(err) => {
-                println!("Failed to compile expression: {}", err.to_string());
+                println!("Failed to compile expression: {}", err);
                 continue;
               }
               Ok(expression) => match script.eval_expression(&expression) {
@@ -108,7 +108,7 @@ fn main() -> Result<(), anyhow::Error> {
   let file_path = args.get(0);
 
   match file_path {
-    Some(file_path) => run_file(&file_path)?,
+    Some(file_path) => run_file(file_path)?,
     None => run_repl()?,
   };
 

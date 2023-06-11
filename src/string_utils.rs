@@ -1,5 +1,5 @@
 pub fn capitalise_first(s: &str) -> String {
-  if s.len() == 0 {
+  if s.is_empty() {
     return String::new();
   }
 
@@ -11,7 +11,7 @@ pub fn capitalise_first(s: &str) -> String {
     .to_uppercase()
     .to_string();
 
-  let maybe_tail_index = s.char_indices().skip(1).next().map(|(n, _)| n);
+  let maybe_tail_index = s.char_indices().nth(1).map(|(n, _)| n);
 
   match maybe_tail_index {
     None => first,
